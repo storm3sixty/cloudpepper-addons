@@ -12,8 +12,10 @@
         ],
     },
     "installable": True,
+    "depends": ["pos_restaurant"],
     "application": False,
     "auto_install": False,
 }
+
 
 
