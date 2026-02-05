@@ -1,15 +1,11 @@
-import { PosStore } from "@point_of_sale/app/store/pos_store";
-import { patch } from "@web/core/utils/patch";
+odoo.define('pos_table_code.load_table_code', function(require){
+    "use strict";
 
-patch(PosStore.prototype, {
-    async _processData(loadedData) {
-        await super._processData(...arguments);
+    const models = require('point_of_sale.models');
 
-        if (loadedData['restaurant.table']) {
-            loadedData['restaurant.table'].forEach(table => {
-                table.display_name =
-                    table.table_code || table.table_number.toString();
-            });
-        }
-    },
+    // Example: extend POS model to load table_code
+    const PosModelSuper = models.PosModel.prototype.models;
+    // Add your custom logic here if needed
 });
+
+
