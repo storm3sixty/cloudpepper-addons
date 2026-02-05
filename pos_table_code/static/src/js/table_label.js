@@ -1,9 +1,10 @@
-import { Table } from "@pos_restaurant/app/floor_screen/table";
-import { patch } from "@web/core/utils/patch";
+odoo.define('pos_table_code.table_label', function(require){
+    "use strict";
 
-patch(Table.prototype, {
-    get label() {
-        return this.props.table.table_code ||
-               this.props.table.table_number.toString();
-    },
+    const screens = require('point_of_sale.screens');
+
+    // Example: display table_code on POS buttons/floor plan
+    // You can extend renderElement() or similar methods here
 });
+
+
