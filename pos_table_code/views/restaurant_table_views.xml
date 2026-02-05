@@ -1,12 +1,10 @@
-<odoo>
-    <record id="restaurant_table_form_inherit_code" model="ir.ui.view">
-        <field name="name">restaurant.table.form.code</field>
-        <field name="model">restaurant.table</field>
-        <field name="inherit_id" ref="pos_restaurant.restaurant_table_view_form"/>
-        <field name="arch" type="xml">
-            <field name="table_number" position="after">
-                <field name="table_code"/>
-            </field>
+<record id="restaurant_table_form_inherit_code" model="ir.ui.view">
+    <field name="name">restaurant.table.form.code</field>
+    <field name="model">restaurant.table</field>
+    <field name="inherit_id" ref="pos_restaurant.view_restaurant_table_form"/>
+    <field name="arch" type="xml">
+        <field name="table_number" position="after">
+            <field name="table_code"/>
         </field>
-    </record>
-</odoo>
+    </field>
+</record>
