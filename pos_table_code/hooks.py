@@ -37,8 +37,8 @@ TREE_ARCH_CANDIDATES = [
 
 
 def _create_extension_view(env, parent_view, arch_candidates, extension_name):
-    View = env["ir.ui.view"].sudo()
-    existing = View.search([
+    view_model = env["ir.ui.view"].sudo()
+    existing = view_model.search([
         ("name", "=", extension_name),
         ("inherit_id", "=", parent_view.id),
     ], limit=1)
@@ -48,7 +48,7 @@ def _create_extension_view(env, parent_view, arch_candidates, extension_name):
     for arch in arch_candidates:
         try:
             with env.cr.savepoint():
-                return View.create({
+                return view_model.create({
                     "name": extension_name,
                     "model": "restaurant.table",
                     "type": parent_view.type,
@@ -61,16 +61,25 @@ def _create_extension_view(env, parent_view, arch_candidates, extension_name):
     return False
 
 
-def post_init_hook(cr, registry):
-    env = api.Environment(cr, SUPERUSER_ID, {})
-    View = env["ir.ui.view"].sudo()
+def _resolve_env(*args):
+    # Odoo variants may call post_init_hook with (env) or (cr, registry).
+    if len(args) == 1 and hasattr(args[0], "cr"):
+        return args[0]
+    if len(args) >= 1:
+        return api.Environment(args[0], SUPERUSER_ID, {})
+    raise ValueError("Unsupported post_init_hook signature")
 
-    form_parent = View.search([
+
+def post_init_hook(*args):
+    env = _resolve_env(*args)
+    view_model = env["ir.ui.view"].sudo()
+
+    form_parent = view_model.search([
         ("model", "=", "restaurant.table"),
         ("type", "=", "form"),
     ], order="priority, id", limit=1)
 
-    tree_parent = View.search([
+    tree_parent = view_model.search([
         ("model", "=", "restaurant.table"),
         ("type", "=", "tree"),
     ], order="priority, id", limit=1)
