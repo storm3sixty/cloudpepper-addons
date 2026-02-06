@@ -4,10 +4,11 @@
     <field name="inherit_id" ref="pos_restaurant.view_restaurant_table_form"/>
     <field name="arch" type="xml">
         <xpath expr="//field[@name='name']" position="after">
-            <field name="table_code"/>
+            <field name="x_table_code"/>
         </xpath>
     </field>
 </record>
+
 
 
 
