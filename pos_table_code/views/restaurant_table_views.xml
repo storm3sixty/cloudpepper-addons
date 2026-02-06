@@ -2,7 +2,7 @@
     <record id="restaurant_floor_form_inherit_table_code" model="ir.ui.view">
         <field name="name">restaurant.floor.form.table.code</field>
         <field name="model">restaurant.floor</field>
-        <field name="inherit_id" ref="pos_restaurant.restaurant_floor_form"/>
+        <field name="inherit_id" ref="pos_restaurant.view_restaurant_floor_form"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='table_ids']/tree/field[@name='name']" position="after">
                 <field name="table_code"/>
@@ -10,6 +10,8 @@
         </field>
     </record>
 </odoo>
+
+
 
 
 
