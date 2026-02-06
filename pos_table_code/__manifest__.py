@@ -6,12 +6,13 @@
     "author": "Your Name",
     "depends": ["pos_restaurant"],
     "data": [
-        "views/x_table_code_views.xml",
+        "x_table_code_views.xml",
     ],
     "installable": True,
     "application": False,
     "auto_install": False,
 }
+
 
 
 
