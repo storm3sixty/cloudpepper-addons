@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_pos_restaurant_table_form_inherit_custom_name" model="ir.ui.view">
+        <field name="name">restaurant.table.form.custom.name</field>
+        <field name="model">restaurant.table</field>
+        <field name="inherit_id" ref="pos_restaurant.view_pos_restaurant_table_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="custom_table_name" placeholder="e.g. Family Booth"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_pos_restaurant_table_tree_inherit_custom_name" model="ir.ui.view">
+        <field name="name">restaurant.table.tree.custom.name</field>
+        <field name="model">restaurant.table</field>
+        <field name="inherit_id" ref="pos_restaurant.view_pos_restaurant_table_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="custom_table_name" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
