@@ -4,16 +4,10 @@
         <field name="model">restaurant.table</field>
         <field name="inherit_id" ref="pos_restaurant.view_restaurant_table_form"/>
         <field name="arch" type="xml">
-            <!-- Add x_table_code after table_number -->
+            <!-- Insert your custom field after table_number -->
             <xpath expr="//field[@name='table_number']" position="after">
                 <field name="x_table_code" string="Table Name"/>
             </xpath>
         </field>
     </record>
 </odoo>
-
-
-
-
-
-
