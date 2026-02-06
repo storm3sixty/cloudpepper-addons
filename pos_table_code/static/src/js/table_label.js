@@ -3,8 +3,16 @@ odoo.define('pos_table_code.table_label', function(require){
 
     const screens = require('point_of_sale.screens');
 
-    // Example: display table_code on POS buttons/floor plan
-    // You can extend renderElement() or similar methods here
+    // Example: render table labels using table.display_name
+    screens.TableWidget.include({
+        renderElement: function(){
+            this._super();
+            this.$el.find('.table-name').text(this.pos_table.display_name);
+        },
+    });
+
 });
+
+
 
 
