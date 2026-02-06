@@ -1,19 +1,12 @@
-# -*- coding: utf-8 -*-
 {
-    'name': 'POS Table Code',
+    'name': 'POS Table Text Names',
     'version': '1.0',
-    'summary': 'Allow text names for POS restaurant tables',
-    'description': """
-This module allows restaurant tables to have custom text names
-instead of only numbers. Table names will appear in the POS table selection.
-""",
+    'category': 'Point of Sale',
+    'summary': 'Allow text table names in restaurant tables and POS',
+    'description': 'This module adds a table_code field to restaurant tables and shows it in POS.',
     'author': 'Your Name',
     'website': 'https://yourwebsite.com',
-    'category': 'Point of Sale',
-    'license': 'LGPL-3',
-    'depends': [
-        'point_of_sale',
-    ],
+    'depends': ['point_of_sale', 'pos_restaurant'],
     'data': [
         'views/x_table_code_views.xml',
     ],
