@@ -13,6 +13,9 @@
         "point_of_sale._assets_pos": [
             "pos_table_code/static/src/js/table_name_patch.js",
         ],
+        "point_of_sale.assets": [
+            "pos_table_code/static/src/js/table_name_patch.js",
+        ],
     },
     "post_init_hook": "post_init_hook",
     "installable": True,
