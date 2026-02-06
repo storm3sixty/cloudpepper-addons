@@ -1,12 +1,10 @@
 <odoo>
-    <!-- Inherit restaurant.table form view -->
     <record id="restaurant_table_form_inherit_code" model="ir.ui.view">
         <field name="name">restaurant.table.form.code</field>
         <field name="model">restaurant.table</field>
-        <field name="inherit_id" ref="pos_restaurant.view_restaurant_table_form"/>
+        <field name="inherit_id" ref="restaurant.restaurant_table_form"/>
         <field name="arch" type="xml">
-            <!-- Insert table_code field after seats -->
-            <xpath expr="//field[@name='seats']" position="after">
+            <xpath expr="//field[@name='table_number']" position="after">
                 <field name="table_code"/>
             </xpath>
         </field>
