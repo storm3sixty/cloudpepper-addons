@@ -17,6 +17,7 @@
     ],
     'data': [
         'views/x_table_code_views.xml',
+        'views/pos_receipts.xml',  # <- add this line
     ],
     'assets': {
         'point_of_sale.assets': [
@@ -28,3 +29,4 @@
     'application': False,
     'auto_install': False,
 }
+
