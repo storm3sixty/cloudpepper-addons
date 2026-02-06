@@ -1,6 +1,6 @@
 from odoo import models, fields
 
 class RestaurantTable(models.Model):
-    _inherit = 'restaurant.table'
+    _inherit = "restaurant.table"
 
-    table_code = fields.Char(string='Table Name')  # New text field
+    table_code = fields.Char(string="Table Name")
