@@ -1,17 +1,19 @@
-odoo.define('pos_table_code.floor_plan', function(require){
+odoo.define('pos_table_code.table_labels', function(require){
     "use strict";
 
-    var models = require('point_of_sale.models');
     var screens = require('point_of_sale.screens');
 
-    var _super = models.PosModel.prototype;
-    models.PosModel = models.PosModel.extend({
-        initialize: function(session, attributes){
-            _super.initialize.call(this, session, attributes);
-            // override tables to use table_code
-            this.tables = this.tables.map(function(table){
-                table.name = table.table_code || table.table_number;
-                return table;
+    screens.FloorplanWidget.include({
+        render_element: function(){
+            this._super();
+            var self = this;
+            this.pos.tables.forEach(function(table){
+                var $el = self.$('.table[data-id="'+table.id+'"]');
+                if($el.length){
+                    // Use x_table_code if set, otherwise table_number
+                    var label = table.x_table_code || table.table_number;
+                    $el.find('.label').text(label);
+                }
             });
         },
     });
