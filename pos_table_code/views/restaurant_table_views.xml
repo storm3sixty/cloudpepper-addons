@@ -1,13 +1,30 @@
-<record id="restaurant_table_form_inherit_code" model="ir.ui.view">
-    <field name="name">restaurant.table.form.code</field>
-    <field name="model">restaurant.table</field>
-    <field name="inherit_id" ref="pos_restaurant.view_table_form"/> <!-- Make sure this view exists -->
-    <field name="arch" type="xml">
-        <xpath expr="//field[@name='name']" position="after">
-            <field name="table_code"/>
-        </xpath>
-    </field>
-</record>
+<odoo>
+    <!-- Form View -->
+    <record id="restaurant_table_form_inherit_code" model="ir.ui.view">
+        <field name="name">restaurant.table.form.code</field>
+        <field name="model">restaurant.table</field>
+        <field name="inherit_id" ref="pos_restaurant.view_table_form"/> <!-- Make sure this exists in your system -->
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="table_code"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Tree / List View -->
+    <record id="restaurant_table_tree_inherit_code" model="ir.ui.view">
+        <field name="name">restaurant.table.tree.code</field>
+        <field name="model">restaurant.table</field>
+        <field name="inherit_id" ref="pos_restaurant.view_table_tree"/> <!-- Make sure this exists -->
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="table_code"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
+
+
 
 
 
