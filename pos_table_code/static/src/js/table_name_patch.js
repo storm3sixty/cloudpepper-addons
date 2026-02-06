@@ -7,29 +7,48 @@ const getTableLabel = (table) => table?.table_code || table?.name || "";
 
 function applyLabelToTable(table) {
     const label = getTableLabel(table);
-    if (!label) {
+    if (!label || typeof table !== "object" || !table) {
         return;
     }
-    // Different POS builds read different keys for floor-table captions.
     table.name = label;
     table.display_name = label;
     table.table_number = label;
 }
 
+function walkAndRelabelTables(root) {
+    const seen = new Set();
+    const queue = [root];
+
+    while (queue.length) {
+        const node = queue.shift();
+        if (!node || typeof node !== "object" || seen.has(node)) {
+            continue;
+        }
+        seen.add(node);
+
+        // Heuristic: table-like records used in POS contain table_number and id.
+        if (("table_number" in node || "table_code" in node) && "id" in node) {
+            applyLabelToTable(node);
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                queue.push(item);
+            }
+        } else {
+            for (const value of Object.values(node)) {
+                if (value && typeof value === "object") {
+                    queue.push(value);
+                }
+            }
+        }
+    }
+}
+
 patch(PosStore.prototype, {
     async _processData(loadedData) {
-        const tableRecords = loadedData["restaurant.table"] || [];
-        for (const table of tableRecords) {
-            applyLabelToTable(table);
-        }
-
+        walkAndRelabelTables(loadedData);
         await super._processData(...arguments);
-
-        // Also patch the in-memory records built by super for compatibility
-        // with variants that clone/normalize payload after loading.
-        const loadedTables = this.models?.["restaurant.table"] || [];
-        for (const table of loadedTables) {
-            applyLabelToTable(table);
-        }
+        walkAndRelabelTables(this);
     },
 });
