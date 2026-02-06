@@ -1,7 +1,38 @@
 from odoo import SUPERUSER_ID, api
 
 
-FORM_ARCH_CANDIDATES = [
+FLOOR_FORM_CANDIDATES = [
+    """
+    <data>
+        <xpath expr="//field[@name='table_ids']/tree/field[@name='table_number']" position="after">
+            <field name="table_code"/>
+        </xpath>
+    </data>
+    """,
+    """
+    <data>
+        <xpath expr="//field[@name='table_ids']/list/field[@name='table_number']" position="after">
+            <field name="table_code"/>
+        </xpath>
+    </data>
+    """,
+    """
+    <data>
+        <xpath expr="//field[@name='restaurant_table_ids']/tree/field[@name='table_number']" position="after">
+            <field name="table_code"/>
+        </xpath>
+    </data>
+    """,
+    """
+    <data>
+        <xpath expr="//field[@name='restaurant_table_ids']/list/field[@name='table_number']" position="after">
+            <field name="table_code"/>
+        </xpath>
+    </data>
+    """,
+]
+
+TABLE_FORM_CANDIDATES = [
     """
     <data>
         <xpath expr="//field[@name='name']" position="after">
@@ -18,25 +49,8 @@ FORM_ARCH_CANDIDATES = [
     """,
 ]
 
-TREE_ARCH_CANDIDATES = [
-    """
-    <data>
-        <xpath expr="//field[@name='name']" position="after">
-            <field name="table_code" optional="show"/>
-        </xpath>
-    </data>
-    """,
-    """
-    <data>
-        <xpath expr="//tree" position="inside">
-            <field name="table_code" optional="show"/>
-        </xpath>
-    </data>
-    """,
-]
 
-
-def _create_extension_view(env, parent_view, arch_candidates, extension_name):
+def _create_extension_view(env, parent_view, model_name, arch_candidates, extension_name):
     view_model = env["ir.ui.view"].sudo()
     existing = view_model.search([
         ("name", "=", extension_name),
@@ -50,7 +64,7 @@ def _create_extension_view(env, parent_view, arch_candidates, extension_name):
             with env.cr.savepoint():
                 return view_model.create({
                     "name": extension_name,
-                    "model": "restaurant.table",
+                    "model": model_name,
                     "type": parent_view.type,
                     "mode": "extension",
                     "inherit_id": parent_view.id,
@@ -62,7 +76,6 @@ def _create_extension_view(env, parent_view, arch_candidates, extension_name):
 
 
 def _resolve_env(*args):
-    # Odoo variants may call post_init_hook with (env) or (cr, registry).
     if len(args) == 1 and hasattr(args[0], "cr"):
         return args[0]
     if len(args) >= 1:
@@ -70,32 +83,37 @@ def _resolve_env(*args):
     raise ValueError("Unsupported post_init_hook signature")
 
 
-def post_init_hook(*args):
-    env = _resolve_env(*args)
-    view_model = env["ir.ui.view"].sudo()
-
-    form_parent = view_model.search([
-        ("model", "=", "restaurant.table"),
+def _find_form_view(view_model, model_name):
+    return view_model.search([
+        ("model", "=", model_name),
         ("type", "=", "form"),
     ], order="priority, id", limit=1)
 
-    tree_parent = view_model.search([
-        ("model", "=", "restaurant.table"),
-        ("type", "=", "tree"),
-    ], order="priority, id", limit=1)
 
-    if form_parent:
+def ensure_dynamic_views(env):
+    view_model = env["ir.ui.view"].sudo()
+
+    floor_form = _find_form_view(view_model, "restaurant.floor")
+    if floor_form:
         _create_extension_view(
             env,
-            form_parent,
-            FORM_ARCH_CANDIDATES,
-            "pos.table.code.form.extension",
+            floor_form,
+            "restaurant.floor",
+            FLOOR_FORM_CANDIDATES,
+            "pos.table.code.floor.form.extension",
         )
 
-    if tree_parent:
+    table_form = _find_form_view(view_model, "restaurant.table")
+    if table_form:
         _create_extension_view(
             env,
-            tree_parent,
-            TREE_ARCH_CANDIDATES,
-            "pos.table.code.tree.extension",
+            table_form,
+            "restaurant.table",
+            TABLE_FORM_CANDIDATES,
+            "pos.table.code.table.form.extension",
         )
+
+
+def post_init_hook(*args):
+    env = _resolve_env(*args)
+    ensure_dynamic_views(env)
