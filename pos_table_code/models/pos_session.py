@@ -7,7 +7,7 @@ class PosSession(models.Model):
     def _loader_params_restaurant_table(self):
         params = super()._loader_params_restaurant_table()
         fields = params.setdefault("search_params", {}).setdefault("fields", [])
-        for field_name in ("custom_table_name", "name", "table_number"):
+        for field_name in ("table_code", "name"):
             if field_name not in fields:
                 fields.append(field_name)
         return params

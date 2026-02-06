@@ -4,18 +4,15 @@ import { patch } from "@web/core/utils/patch";
 import { PosStore } from "@point_of_sale/app/store/pos_store";
 import { Order } from "@point_of_sale/app/store/models";
 
-function getTableLabel(table) {
-    return table?.custom_table_name || table?.display_table_name || table?.name || "";
-}
+const getTableLabel = (table) => table?.table_code || table?.name || "";
 
 patch(PosStore.prototype, {
     async _processData(loadedData) {
         const tableRecords = loadedData["restaurant.table"] || [];
         for (const table of tableRecords) {
-            const display = table.custom_table_name || table.name || "";
-            table.display_table_name = display;
-            if (display) {
-                table.name = display;
+            const label = getTableLabel(table);
+            if (label) {
+                table.name = label;
             }
         }
         await super._processData(...arguments);
@@ -26,10 +23,10 @@ patch(Order.prototype, {
     export_for_printing() {
         const result = super.export_for_printing(...arguments);
         const table = this.getTable ? this.getTable() : null;
-        const tableLabel = getTableLabel(table);
-        if (tableLabel) {
-            result.table_name = tableLabel;
-            result.table = tableLabel;
+        const label = getTableLabel(table);
+        if (label) {
+            result.table = label;
+            result.table_name = label;
         }
         return result;
     },
