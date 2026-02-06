@@ -1,0 +1,23 @@
+<odoo>
+    <!-- Inherit the POS Order Receipt template -->
+    <template id="pos_order_receipt_inherit_table_code" inherit_id="point_of_sale.pos_receipt">
+        <xpath expr="//div[contains(@class, 'pos-order-table')]" position="replace">
+            <div class="pos-order-table">
+                <t t-if="order.table">
+                    <span t-esc="order.table.table_code or order.table.table_number"/>
+                </t>
+            </div>
+        </xpath>
+    </template>
+
+    <!-- Inherit the POS Kitchen Ticket template -->
+    <template id="pos_kitchen_receipt_inherit_table_code" inherit_id="point_of_sale.pos_kitchen_receipt">
+        <xpath expr="//div[contains(@class, 'table-name')]" position="replace">
+            <div class="table-name">
+                <t t-if="order.table">
+                    <span t-esc="order.table.table_code or order.table.table_number"/>
+                </t>
+            </div>
+        </xpath>
+    </template>
+</odoo>
