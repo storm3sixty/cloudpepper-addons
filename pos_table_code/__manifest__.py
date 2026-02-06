@@ -1,50 +1,18 @@
-# -*- coding: utf-8 -*-
 {
-    'name': "POS Table Code",
-    'version': "1.0",
-    'category': "Point of Sale",
-    'summary': "Add table codes (like A1, A2, A3) to restaurant tables",
-    'description': """
-This module adds a new field 'table_code' to restaurant tables in POS Restaurant.
-It allows you to assign codes like A1, A2, A3 to tables.
-""",
-    'author': "Your Name / Your Company",
-    'website': "https://www.example.com",
-    'depends': [
-        'pos_restaurant',
-        'pos_self_order',  # if you need it
+    "name": "POS Table Code",
+    "version": "16.0.1.0.0",
+    "category": "Point of Sale",
+    "summary": "Add custom table names for POS",
+    "author": "Your Name",
+    "depends": ["point_of_sale", "restaurant", "pos_restaurant"],
+    "data": [
+        "views/x_table_code_views.xml",
     ],
-    'data': [
-        # Views
-        'views/x_table_code_views.xml',  # Correct path, inside views/
-        
-        # If you ever have security or data files, include them here
-        # 'security/ir.model.access.csv',
-        # 'data/some_data.xml',
-    ],
-    'assets': {
-        'web.assets_backend': [
-            'pos_table_code/static/src/js/load_table_code.js',
-            'pos_table_code/static/src/js/table_label.js',
+    "assets": {
+        "point_of_sale.assets": [
+            "pos_table_code/static/src/js/load_table_code.js",
         ],
     },
-    'installable': True,
-    'application': False,
-    'auto_install': False,
+    "installable": True,
+    "application": False,
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
