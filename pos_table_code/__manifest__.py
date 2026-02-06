@@ -1,32 +1,27 @@
+# -*- coding: utf-8 -*-
 {
-    'name': "POS Table Code",
+    'name': 'POS Table Code',
     'version': '1.0',
-    'summary': "Allows text table names in POS restaurant tables",
+    'summary': 'Allow text names for restaurant tables in POS',
     'description': """
-        This module allows using text-based table names in POS restaurant tables.
-        It adds a new field 'Table Name / Code' to the restaurant table model.
-        The table name will appear in POS, on kitchen receipts, and payment receipts.
-    """,
-    'author': "Your Name",
-    'website': "https://www.yourcompany.com",
+This module allows restaurant tables to have custom text names
+instead of only numbers. Table names will appear in the POS table selection.
+""",
+    'author': 'Your Name or Company',
+    'website': 'https://yourwebsite.com',
     'category': 'Point of Sale',
     'license': 'LGPL-3',
     'depends': [
         'point_of_sale',
-        'pos_restaurant',  # Make sure this module is installed
+        'restaurant',  # make sure this module is installed
     ],
     'data': [
-        'views/x_table_code_views.xml',
-        'views/pos_receipts.xml',  # <- add this line
+        'views/x_table_code_views.xml',  # form view for table_code field
     ],
-    'assets': {
-        'point_of_sale.assets': [
-            'pos_table_code/static/src/js/load_table_code.js',
-            'pos_table_code/static/src/js/table_label.js',
-        ],
-    },
+    'demo': [
+        # optional demo data if you want
+    ],
     'installable': True,
     'application': False,
     'auto_install': False,
 }
-
