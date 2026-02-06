@@ -1,4 +1,1 @@
-from . import models
-
-
-
+from . import restaurant_table
