@@ -4,7 +4,7 @@
     "category": "Point of Sale",
     "summary": "Add custom table names for POS",
     "author": "Your Name",
-    "depends": ["point_of_sale", "restaurant", "pos_restaurant"],
+    "depends": ["point_of_sale", "restaurant",
     "data": [
         "views/x_table_code_views.xml",
     ],
@@ -17,3 +17,4 @@
     "installable": True,
     "application": False,
 }
+
