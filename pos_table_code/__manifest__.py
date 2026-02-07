@@ -2,7 +2,7 @@
     "name": "POS Table Text Names",
     "summary": "Allow text table names in restaurant tables and POS",
     "description": "Adds a table_code field to restaurant tables and uses it in POS floor and receipts.",
-    "version": "18.0.1.1",
+    "version": "18.0.1.2",
     "category": "Point of Sale",
     "author": "CloudHopper",
     "website": "https://cloudhopper.example.com",
