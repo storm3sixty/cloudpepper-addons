@@ -4,12 +4,12 @@
         <field name="name">pos.wp.bridge.config.tree</field>
         <field name="model">pos.wp.bridge.config</field>
         <field name="arch" type="xml">
-            <tree>
+            <list>
                 <field name="name"/>
                 <field name="wordpress_base_url"/>
                 <field name="active"/>
                 <field name="last_sync_at"/>
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -48,14 +48,14 @@
         <field name="name">pos.wp.booking.tree</field>
         <field name="model">pos.wp.booking</field>
         <field name="arch" type="xml">
-            <tree>
+            <list>
                 <field name="external_id"/>
                 <field name="customer_name"/>
                 <field name="party_size"/>
                 <field name="booking_datetime"/>
                 <field name="status"/>
                 <field name="config_id"/>
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -92,14 +92,14 @@
         <field name="name">pos.wp.order.tree</field>
         <field name="model">pos.wp.order</field>
         <field name="arch" type="xml">
-            <tree>
+            <list>
                 <field name="external_id"/>
                 <field name="customer_name"/>
                 <field name="total_amount"/>
                 <field name="currency"/>
                 <field name="status"/>
                 <field name="config_id"/>
-            </tree>
+            </list>
         </field>
     </record>
 
