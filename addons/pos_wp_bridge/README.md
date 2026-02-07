@@ -70,3 +70,23 @@ After fixing `addons_path`:
 2. Clear browser cache / hard refresh.
 3. Open Developer Tools and check first failing request.
 4. Check Odoo logs for traceback around startup or `/web` requests.
+
+
+## CloudPepper path example (your current server)
+
+Given your paths:
+
+- `/var/odoo/ptlms7mk6s.cloudpepper.site/src/addons`
+- `/var/odoo/ptlms7mk6s.cloudpepper.site/extra-addons/cloudpepper-addons.git-6986b839a13e3`
+
+your module is nested under `addons/pos_wp_bridge`, so Odoo must point to the nested `addons` folder:
+
+```ini
+addons_path=/var/odoo/ptlms7mk6s.cloudpepper.site/src/addons,/var/odoo/ptlms7mk6s.cloudpepper.site/extra-addons/cloudpepper-addons.git-6986b839a13e3/addons
+```
+
+Notes:
+
+- Do **not** remove the default/core addons entries.
+- Prefer no spaces after commas in `addons_path`.
+- Then restart Odoo and update Apps List.
