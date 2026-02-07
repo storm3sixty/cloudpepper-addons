@@ -2,7 +2,6 @@
 
 import { patch } from "@web/core/utils/patch";
 import { PosStore } from "@point_of_sale/app/store/pos_store";
-import { Order } from "@point_of_sale/app/store/models";
 
 function buildTableLabel(table) {
     if (!table || typeof table !== "object") {
@@ -25,7 +24,7 @@ function applyTableLabel(table) {
     if (!label) {
         return;
     }
-    if (!("_raw_table_number" in table)) {
+    if (!Object.prototype.hasOwnProperty.call(table, "_raw_table_number")) {
         table._raw_table_number = table.table_number;
     }
     table.display_name = label;
@@ -50,31 +49,3 @@ patch(PosStore.prototype, {
         applyTableLabels(this.data?.["restaurant.table"]);
     },
 });
-
-patch(Order.prototype, {
-    export_for_printing() {
-        const result = super.export_for_printing(...arguments);
-        const label = buildTableLabel(this.getTable ? this.getTable() : null);
-        if (label) {
-            result.table = label;
-            result.table_name = label;
-            result.table_number = label;
-        }
-        return result;
-    },
-});
-
-if (Order.prototype.export_for_kitchen_printing) {
-    patch(Order.prototype, {
-        export_for_kitchen_printing() {
-            const result = super.export_for_kitchen_printing(...arguments);
-            const label = buildTableLabel(this.getTable ? this.getTable() : null);
-            if (label && result && typeof result === "object") {
-                result.table = label;
-                result.table_name = label;
-                result.table_number = label;
-            }
-            return result;
-        },
-    });
-}
