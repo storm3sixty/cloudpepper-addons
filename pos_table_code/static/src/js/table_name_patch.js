@@ -18,23 +18,17 @@ function applyLabelToTable(table) {
 function walkAndRelabelTables(root) {
     const seen = new Set();
     const queue = [root];
-
     while (queue.length) {
         const node = queue.shift();
         if (!node || typeof node !== "object" || seen.has(node)) {
             continue;
         }
         seen.add(node);
-
-        // Heuristic: table-like records used in POS contain table_number and id.
         if (("table_number" in node || "table_code" in node) && "id" in node) {
             applyLabelToTable(node);
         }
-
         if (Array.isArray(node)) {
-            for (const item of node) {
-                queue.push(item);
-            }
+            queue.push(...node);
         } else {
             for (const value of Object.values(node)) {
                 if (value && typeof value === "object") {
@@ -45,10 +39,29 @@ function walkAndRelabelTables(root) {
     }
 }
 
+function relabelInStore(store, loadedData) {
+    walkAndRelabelTables(loadedData);
+    walkAndRelabelTables(store);
+}
+
 patch(PosStore.prototype, {
     async _processData(loadedData) {
-        walkAndRelabelTables(loadedData);
+        relabelInStore(this, loadedData);
         await super._processData(...arguments);
-        walkAndRelabelTables(this);
+        relabelInStore(this, loadedData);
+    },
+
+    async _processPosData(loadedData) {
+        relabelInStore(this, loadedData);
+        await super._processPosData(...arguments);
+        relabelInStore(this, loadedData);
+    },
+
+    async processServerData(...args) {
+        const loadedData = args[0] || {};
+        relabelInStore(this, loadedData);
+        const result = await super.processServerData(...args);
+        relabelInStore(this, loadedData);
+        return result;
     },
 });
