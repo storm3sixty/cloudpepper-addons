@@ -22,3 +22,10 @@ class PosConfig(models.Model):
         string="Kitchen Receipt Extra Text",
         help="Extra text appended to kitchen receipt from POS.",
     )
+
+    def _register_hook(self):
+        result = super()._register_hook()
+        from ..hooks import ensure_dynamic_views
+
+        ensure_dynamic_views(self.env)
+        return result

@@ -49,6 +49,33 @@ TABLE_FORM_CANDIDATES = [
     """,
 ]
 
+POS_CONFIG_FORM_CANDIDATES = [
+    """
+    <data>
+        <xpath expr="//form//sheet" position="inside">
+            <group string="POS UI Designer">
+                <field name="ui_enable_drag_and_drop"/>
+                <field name="ui_button_labels_json" widget="text"/>
+                <field name="ui_sales_receipt_note" widget="text"/>
+                <field name="ui_kitchen_receipt_note" widget="text"/>
+            </group>
+        </xpath>
+    </data>
+    """,
+    """
+    <data>
+        <xpath expr="//form//group[1]" position="after">
+            <group string="POS UI Designer">
+                <field name="ui_enable_drag_and_drop"/>
+                <field name="ui_button_labels_json" widget="text"/>
+                <field name="ui_sales_receipt_note" widget="text"/>
+                <field name="ui_kitchen_receipt_note" widget="text"/>
+            </group>
+        </xpath>
+    </data>
+    """,
+]
+
 
 def _create_extension_view(env, parent_view, model_name, arch_candidates, extension_name):
     view_model = env["ir.ui.view"].sudo()
@@ -111,6 +138,16 @@ def ensure_dynamic_views(env):
             "restaurant.table",
             TABLE_FORM_CANDIDATES,
             "pos.table.code.table.form.extension",
+        )
+
+    pos_config_form = _find_form_view(view_model, "pos.config")
+    if pos_config_form:
+        _create_extension_view(
+            env,
+            pos_config_form,
+            "pos.config",
+            POS_CONFIG_FORM_CANDIDATES,
+            "pos.table.code.pos.config.ui.designer.extension",
         )
 
 
