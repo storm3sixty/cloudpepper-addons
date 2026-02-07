@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_pos_wp_bridge_config_tree" model="ir.ui.view">
+        <field name="name">pos.wp.bridge.config.tree</field>
+        <field name="model">pos.wp.bridge.config</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="wordpress_base_url"/>
+                <field name="active"/>
+                <field name="last_sync_at"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_pos_wp_bridge_config_form" model="ir.ui.view">
+        <field name="name">pos.wp.bridge.config.form</field>
+        <field name="model">pos.wp.bridge.config</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_test_bridge" type="object" string="Test Bridge" class="btn-primary"/>
+                    <button name="action_pull_bookings" type="object" string="Pull Bookings"/>
+                    <button name="action_pull_orders" type="object" string="Pull Orders"/>
+                </header>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="active"/>
+                        <field name="wordpress_base_url"/>
+                        <field name="odoo_passcode" password="True"/>
+                        <field name="wc_consumer_key"/>
+                        <field name="wc_consumer_secret" password="True"/>
+                        <field name="last_sync_at" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_pos_wp_bridge_config" model="ir.actions.act_window">
+        <field name="name">WordPress Bridge</field>
+        <field name="res_model">pos.wp.bridge.config</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <record id="view_pos_wp_booking_tree" model="ir.ui.view">
+        <field name="name">pos.wp.booking.tree</field>
+        <field name="model">pos.wp.booking</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="external_id"/>
+                <field name="customer_name"/>
+                <field name="party_size"/>
+                <field name="booking_datetime"/>
+                <field name="status"/>
+                <field name="config_id"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_pos_wp_booking_form" model="ir.ui.view">
+        <field name="name">pos.wp.booking.form</field>
+        <field name="model">pos.wp.booking</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="config_id"/>
+                        <field name="external_id"/>
+                        <field name="customer_name"/>
+                        <field name="customer_phone"/>
+                        <field name="customer_email"/>
+                        <field name="party_size"/>
+                        <field name="booking_datetime"/>
+                        <field name="status"/>
+                        <field name="notes"/>
+                        <field name="raw_payload" widget="json"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_pos_wp_booking" model="ir.actions.act_window">
+        <field name="name">Website Bookings</field>
+        <field name="res_model">pos.wp.booking</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <record id="view_pos_wp_order_tree" model="ir.ui.view">
+        <field name="name">pos.wp.order.tree</field>
+        <field name="model">pos.wp.order</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="external_id"/>
+                <field name="customer_name"/>
+                <field name="total_amount"/>
+                <field name="currency"/>
+                <field name="status"/>
+                <field name="config_id"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_pos_wp_order" model="ir.actions.act_window">
+        <field name="name">Website Orders</field>
+        <field name="res_model">pos.wp.order</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_pos_wp_root" name="POS WP Bridge" parent="point_of_sale.menu_point_root" sequence="200"/>
+    <menuitem id="menu_pos_wp_config" name="Connections" parent="menu_pos_wp_root" action="action_pos_wp_bridge_config"/>
+    <menuitem id="menu_pos_wp_booking" name="Bookings" parent="menu_pos_wp_root" action="action_pos_wp_booking"/>
+    <menuitem id="menu_pos_wp_order" name="Orders" parent="menu_pos_wp_root" action="action_pos_wp_order"/>
+</odoo>
