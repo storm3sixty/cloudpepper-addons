@@ -62,6 +62,51 @@ function wp_odoo_bridge_format_booking($booking_id) {
     ];
 }
 
+
+
+function wp_odoo_bridge_format_order($order) {
+    if (!$order) {
+        return [];
+    }
+
+    $items = [];
+    foreach ($order->get_items() as $item) {
+        $items[] = [
+            'name' => $item->get_name(),
+            'quantity' => (float) $item->get_quantity(),
+        ];
+    }
+
+    return [
+        'id' => (string) $order->get_id(),
+        'currency' => $order->get_currency(),
+        'total' => $order->get_total(),
+        'status' => $order->get_status(),
+        'customer_note' => (string) $order->get_customer_note(),
+        'billing' => [
+            'first_name' => $order->get_billing_first_name(),
+            'last_name' => $order->get_billing_last_name(),
+            'address_1' => $order->get_billing_address_1(),
+            'address_2' => $order->get_billing_address_2(),
+            'city' => $order->get_billing_city(),
+            'state' => $order->get_billing_state(),
+            'postcode' => $order->get_billing_postcode(),
+            'country' => $order->get_billing_country(),
+        ],
+        'shipping' => [
+            'first_name' => $order->get_shipping_first_name(),
+            'last_name' => $order->get_shipping_last_name(),
+            'address_1' => $order->get_shipping_address_1(),
+            'address_2' => $order->get_shipping_address_2(),
+            'city' => $order->get_shipping_city(),
+            'state' => $order->get_shipping_state(),
+            'postcode' => $order->get_shipping_postcode(),
+            'country' => $order->get_shipping_country(),
+        ],
+        'line_items' => $items,
+    ];
+}
+
 function wp_odoo_bridge_rest_permission(WP_REST_Request $request) {
     return wp_odoo_bridge_is_authorized_request($request) ?: new WP_Error('forbidden', 'Invalid passcode', ['status' => 403]);
 }
@@ -110,16 +155,7 @@ add_action('rest_api_init', function () {
 
             $result = [];
             foreach ($orders as $order) {
-                $result[] = [
-                    'id' => (string) $order->get_id(),
-                    'currency' => $order->get_currency(),
-                    'total' => $order->get_total(),
-                    'status' => $order->get_status(),
-                    'billing' => [
-                        'first_name' => $order->get_billing_first_name(),
-                        'last_name' => $order->get_billing_last_name(),
-                    ],
-                ];
+                $result[] = wp_odoo_bridge_format_order($order);
             }
             return $result;
         },
@@ -209,16 +245,5 @@ add_action('woocommerce_new_order', function ($order_id) {
         return;
     }
 
-    $data = [
-        'id' => (string) $order->get_id(),
-        'currency' => $order->get_currency(),
-        'total' => $order->get_total(),
-        'status' => $order->get_status(),
-        'billing' => [
-            'first_name' => $order->get_billing_first_name(),
-            'last_name' => $order->get_billing_last_name(),
-        ],
-    ];
-
-    wp_odoo_bridge_send_to_odoo('order', $data);
+    wp_odoo_bridge_send_to_odoo('order', wp_odoo_bridge_format_order($order));
 }, 10, 1);

@@ -90,3 +90,13 @@ Notes:
 - Do **not** remove the default/core addons entries.
 - Prefer no spaces after commas in `addons_path`.
 - Then restart Odoo and update Apps List.
+
+## New behavior added
+
+- Auto sync cron runs every **2 minutes** (bookings + orders if Woo keys are set).
+- POS receives both booking and order realtime bus events.
+- POS shows popup notifications for both bookings and orders and plays a beep sound.
+- Website order payload now includes line items, customer address, and order notes.
+- POS attempts browser-based auto print for incoming website orders.
+
+> Note: browser auto-print depends on browser policy/popups. For guaranteed unattended thermal printing, configure a supported POS printer stack (IoT/ePOS/proxy) and adapt printing to that channel.

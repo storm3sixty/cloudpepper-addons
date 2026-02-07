@@ -27,6 +27,7 @@
                     <group>
                         <field name="name"/>
                         <field name="active"/>
+                        <field name="auto_sync_enabled"/>
                         <field name="wordpress_base_url"/>
                         <field name="odoo_passcode" password="True"/>
                         <field name="wc_consumer_key"/>
@@ -95,9 +96,12 @@
             <list>
                 <field name="external_id"/>
                 <field name="customer_name"/>
+                <field name="ordered_items"/>
                 <field name="total_amount"/>
                 <field name="currency"/>
                 <field name="status"/>
+                <field name="customer_address"/>
+                <field name="order_notes"/>
                 <field name="config_id"/>
             </list>
         </field>
@@ -107,6 +111,29 @@
         <field name="name">Website Orders</field>
         <field name="res_model">pos.wp.order</field>
         <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_pos_wp_order_form" model="ir.ui.view">
+        <field name="name">pos.wp.order.form</field>
+        <field name="model">pos.wp.order</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="config_id"/>
+                        <field name="external_id"/>
+                        <field name="customer_name"/>
+                        <field name="customer_address"/>
+                        <field name="order_notes"/>
+                        <field name="ordered_items"/>
+                        <field name="total_amount"/>
+                        <field name="currency"/>
+                        <field name="status"/>
+                        <field name="raw_payload" widget="json"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
     </record>
 
     <menuitem id="menu_pos_wp_root" name="POS WP Bridge" parent="point_of_sale.menu_point_root" sequence="200"/>

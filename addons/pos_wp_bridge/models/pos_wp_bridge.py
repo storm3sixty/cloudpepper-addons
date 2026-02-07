@@ -43,6 +43,7 @@ class PosWpBridgeConfig(models.Model):
     wc_consumer_key = fields.Char()
     wc_consumer_secret = fields.Char()
     active = fields.Boolean(default=True)
+    auto_sync_enabled = fields.Boolean(default=True)
     last_sync_at = fields.Datetime(readonly=True)
 
     def _normalized_base_url(self):
@@ -51,6 +52,14 @@ class PosWpBridgeConfig(models.Model):
         if not base:
             raise UserError(_("WordPress Base URL is required."))
         return base if base.endswith("/") else f"{base}/"
+
+    @api.model
+    def cron_auto_sync(self):
+        records = self.search([("active", "=", True), ("auto_sync_enabled", "=", True)])
+        for rec in records:
+            rec.action_pull_bookings()
+            if rec.wc_consumer_key and rec.wc_consumer_secret:
+                rec.action_pull_orders()
 
     def action_test_bridge(self):
         for rec in self:
@@ -183,6 +192,9 @@ class PosWpOrder(models.Model):
     config_id = fields.Many2one("pos.wp.bridge.config", required=True, ondelete="cascade")
     external_id = fields.Char(required=True, index=True)
     customer_name = fields.Char()
+    customer_address = fields.Text()
+    order_notes = fields.Text()
+    ordered_items = fields.Text()
     total_amount = fields.Float()
     currency = fields.Char()
     status = fields.Char()
@@ -198,14 +210,32 @@ class PosWpOrder(models.Model):
         if not external_id:
             return False
 
-        customer_name = payload.get("billing", {}).get("first_name", "")
-        if payload.get("billing", {}).get("last_name"):
-            customer_name = f"{customer_name} {payload['billing']['last_name']}".strip()
+        billing = payload.get("billing", {}) or {}
+        shipping = payload.get("shipping", {}) or {}
+        customer_name = payload.get("customer_name") or (f"{billing.get('first_name', '')} {billing.get('last_name', '')}".strip())
+        address_parts = [
+            shipping.get("address_1") or billing.get("address_1"),
+            shipping.get("address_2") or billing.get("address_2"),
+            shipping.get("city") or billing.get("city"),
+            shipping.get("state") or billing.get("state"),
+            shipping.get("postcode") or billing.get("postcode"),
+            shipping.get("country") or billing.get("country"),
+        ]
+        customer_address = ", ".join([p for p in address_parts if p])
+
+        line_names = []
+        for line in payload.get("line_items", []) or []:
+            qty = int(float(line.get("quantity") or 0))
+            name = line.get("name") or "Item"
+            line_names.append(f"{qty} x {name}" if qty else name)
 
         values = {
             "config_id": config_id,
             "external_id": external_id,
-            "customer_name": customer_name or payload.get("customer_name"),
+            "customer_name": customer_name,
+            "customer_address": customer_address,
+            "order_notes": payload.get("customer_note") or payload.get("order_notes"),
+            "ordered_items": "\n".join(line_names),
             "total_amount": float(payload.get("total") or 0.0),
             "currency": payload.get("currency"),
             "status": payload.get("status"),
@@ -216,4 +246,20 @@ class PosWpOrder(models.Model):
             record.write(values)
         else:
             record = self.create(values)
+
+        self.env["bus.bus"]._sendone(
+            "pos_wp_order_channel",
+            "wp_order_created",
+            {
+                "id": record.id,
+                "external_id": record.external_id,
+                "name": record.customer_name,
+                "ordered_items": record.ordered_items,
+                "customer_address": record.customer_address,
+                "order_notes": record.order_notes,
+                "total_amount": record.total_amount,
+                "currency": record.currency,
+                "status": record.status,
+            },
+        )
         return record

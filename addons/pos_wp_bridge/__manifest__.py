@@ -8,6 +8,7 @@
     "depends": ["base", "point_of_sale", "web", "bus"],
     "data": [
         "security/ir.model.access.csv",
+        "data/ir_cron.xml",
         "views/pos_wp_bridge_views.xml",
     ],
     "assets": {
