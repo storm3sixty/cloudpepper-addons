@@ -23,4 +23,5 @@ class PosSession(models.Model):
             table["name"] = label
             table["display_name"] = label
             table["table_number"] = label
+            table["table_name"] = label
         return tables
