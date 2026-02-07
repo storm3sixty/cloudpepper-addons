@@ -3,6 +3,9 @@
 import { patch } from "@web/core/utils/patch";
 import { PosStore } from "@point_of_sale/app/store/pos_store";
 
+const TABLE_LABEL_SELECTOR =
+    ".label.fw-bolder.fs-4.position-absolute.top-50.start-50.translate-middle";
+
 function buildTableLabel(table) {
     if (!table || typeof table !== "object") {
         return "";
@@ -19,11 +22,17 @@ function buildTableLabel(table) {
     return `${numberText} - ${code}`;
 }
 
-function applyLabel(table) {
+function applyLabel(table, labelMap) {
     const label = buildTableLabel(table);
     if (!label || !table || typeof table !== "object") {
         return;
     }
+    const rawNumber = table._raw_table_number ?? table.table_number;
+    const rawKey = rawNumber != null ? String(rawNumber).trim() : "";
+    if (rawKey) {
+        labelMap[rawKey] = label;
+    }
+
     if (!Object.prototype.hasOwnProperty.call(table, "_raw_table_number")) {
         table._raw_table_number = table.table_number;
     }
@@ -32,7 +41,7 @@ function applyLabel(table) {
     table.table_name = label;
 }
 
-function walkAndApply(root) {
+function walkAndApply(root, labelMap) {
     const seen = new Set();
     const queue = [root];
     while (queue.length) {
@@ -43,7 +52,7 @@ function walkAndApply(root) {
         seen.add(node);
 
         if ("id" in node && ("table_code" in node || "table_number" in node || "table_name" in node)) {
-            applyLabel(node);
+            applyLabel(node, labelMap);
         }
 
         if (Array.isArray(node)) {
@@ -58,6 +67,34 @@ function walkAndApply(root) {
             }
         }
     }
+}
+
+function relabelFloorDOM(labelMap) {
+    const labels = document.querySelectorAll(TABLE_LABEL_SELECTOR);
+    for (const el of labels) {
+        const current = (el.textContent || "").trim();
+        if (!current) {
+            continue;
+        }
+        const replacement = labelMap[current];
+        if (replacement && replacement !== current) {
+            el.textContent = replacement;
+        }
+    }
+}
+
+function ensureDOMObserver(store) {
+    if (store.__tableCodeObserverReady) {
+        relabelFloorDOM(store.__tableCodeLabelMap || {});
+        return;
+    }
+
+    store.__tableCodeObserverReady = true;
+    const callback = () => relabelFloorDOM(store.__tableCodeLabelMap || {});
+    const observer = new MutationObserver(callback);
+    observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+    store.__tableCodeObserver = observer;
+    callback();
 }
 
 function patchOrderPrinting(store) {
@@ -100,9 +137,11 @@ function patchOrderPrinting(store) {
 
 patch(PosStore.prototype, {
     async _processData(loadedData) {
-        walkAndApply(loadedData);
+        this.__tableCodeLabelMap = this.__tableCodeLabelMap || {};
+        walkAndApply(loadedData, this.__tableCodeLabelMap);
         await super._processData(...arguments);
-        walkAndApply(this);
+        walkAndApply(this, this.__tableCodeLabelMap);
         patchOrderPrinting(this);
+        ensureDOMObserver(this);
     },
 });
