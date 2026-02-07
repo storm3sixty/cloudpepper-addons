@@ -3,20 +3,25 @@
 import { patch } from "@web/core/utils/patch";
 import { PosStore } from "@point_of_sale/app/store/pos_store";
 
-const TABLE_LABEL_SELECTOR =
-    ".label.fw-bolder.fs-4.position-absolute.top-50.start-50.translate-middle";
+const TABLE_CONTAINER_SELECTORS = [
+    ".table",
+    ".floor-table",
+    ".restaurant-table",
+    "[data-table-id]",
+    "[data-id]",
+];
 
 function buildTableLabel(table) {
     if (!table || typeof table !== "object") {
         return "";
     }
     const code = (table.table_code || "").trim();
-    const number = table._raw_table_number ?? table.table_number;
-    const numberText = number != null ? String(number).trim() : "";
+    const rawNumber = table._raw_table_number ?? table.table_number;
+    const numberText = rawNumber != null ? String(rawNumber).trim() : "";
     if (!code) {
         return numberText;
     }
-    if (!numberText || numberText === code || numberText === "0" || numberText.endsWith(` - ${code}`)) {
+    if (!numberText || numberText === "0" || numberText === code || numberText.endsWith(` - ${code}`)) {
         return code;
     }
     return `${numberText} - ${code}`;
@@ -69,11 +74,24 @@ function walkAndApply(root, labelMap) {
     }
 }
 
+function isSimpleNumericText(text) {
+    return /^\d+$/.test(text.trim());
+}
+
 function relabelFloorDOM(labelMap) {
-    const labels = document.querySelectorAll(TABLE_LABEL_SELECTOR);
-    for (const el of labels) {
+    const all = document.querySelectorAll("div, span");
+    for (const el of all) {
+        if (!el || el.children.length) {
+            continue;
+        }
         const current = (el.textContent || "").trim();
-        if (!current) {
+        if (!current || !isSimpleNumericText(current)) {
+            continue;
+        }
+        if (el.classList.contains("badge") || el.closest(".badge")) {
+            continue;
+        }
+        if (!el.closest(TABLE_CONTAINER_SELECTORS.join(","))) {
             continue;
         }
         const replacement = labelMap[current];
