@@ -14,6 +14,12 @@ class PosConfig(models.Model):
         default=False,
         help="Allow drag-and-drop reordering for top header buttons in POS UI.",
     )
+    ui_table_alias_json = fields.Text(
+        string="POS Table Alias Map (JSON)",
+        default='{}',
+        help='JSON map for table labels by number. Example: {"101": "VIP Corner", "4": "Window Side"}',
+    )
+
     ui_sales_receipt_note = fields.Text(
         string="Sales Receipt Extra Text",
         help="Extra text appended to sales receipt from POS.",

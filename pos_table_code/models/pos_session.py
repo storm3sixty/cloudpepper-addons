@@ -18,6 +18,7 @@ class PosSession(models.Model):
         for field_name in (
             "ui_button_labels_json",
             "ui_enable_drag_and_drop",
+            "ui_table_alias_json",
             "ui_sales_receipt_note",
             "ui_kitchen_receipt_note",
         ):

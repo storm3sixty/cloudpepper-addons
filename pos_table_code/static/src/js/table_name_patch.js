@@ -17,11 +17,21 @@ function parseJsonMap(raw) {
     }
 }
 
-function buildTableLabel(table) {
+function getAliasForTable(table, aliasMap) {
+    const raw = table?._raw_table_number ?? table?.table_number;
+    const key = raw != null ? String(raw).trim() : "";
+    if (!key) {
+        return "";
+    }
+    return (aliasMap?.[key] || "").trim();
+}
+
+function buildTableLabel(table, aliasMap = {}) {
     if (!table || typeof table !== "object") {
         return "";
     }
-    const code = (table.table_code || "").trim();
+    const alias = getAliasForTable(table, aliasMap);
+    const code = alias || (table.table_code || "").trim();
     const rawNumber = table._raw_table_number ?? table.table_number;
     const numberText = rawNumber != null ? String(rawNumber).trim() : "";
     if (!code) {
@@ -33,8 +43,8 @@ function buildTableLabel(table) {
     return `${numberText} - ${code}`;
 }
 
-function applyTableLabel(table, labelMap) {
-    const label = buildTableLabel(table);
+function applyTableLabel(table, labelMap, aliasMap = {}) {
+    const label = buildTableLabel(table, aliasMap);
     if (!label || !table || typeof table !== "object") {
         return;
     }
@@ -51,7 +61,7 @@ function applyTableLabel(table, labelMap) {
     table.table_name = label;
 }
 
-function walkTables(root, labelMap) {
+function walkTables(root, labelMap, aliasMap = {}) {
     const seen = new Set();
     const queue = [root];
     while (queue.length) {
@@ -61,7 +71,7 @@ function walkTables(root, labelMap) {
         }
         seen.add(node);
         if ("id" in node && ("table_code" in node || "table_number" in node || "table_name" in node)) {
-            applyTableLabel(node, labelMap);
+            applyTableLabel(node, labelMap, aliasMap);
         }
         if (Array.isArray(node)) {
             queue.push(...node);
@@ -156,7 +166,7 @@ function patchOrderPrinting(store) {
     if (typeof original === "function") {
         proto.export_for_printing = function (...args) {
             const result = original.apply(this, args);
-            const label = buildTableLabel(this.getTable ? this.getTable() : null);
+            const label = buildTableLabel(this.getTable ? this.getTable() : null, store.__tableAliasMap || {});
             if (label && result && typeof result === "object") {
                 result.table = label;
                 result.table_name = label;
@@ -173,7 +183,7 @@ function patchOrderPrinting(store) {
     if (typeof kitchenOriginal === "function") {
         proto.export_for_kitchen_printing = function (...args) {
             const result = kitchenOriginal.apply(this, args);
-            const label = buildTableLabel(this.getTable ? this.getTable() : null);
+            const label = buildTableLabel(this.getTable ? this.getTable() : null, store.__tableAliasMap || {});
             if (label && result && typeof result === "object") {
                 result.table = label;
                 result.table_name = label;
@@ -217,10 +227,12 @@ patch(PosStore.prototype, {
     async _processData(loadedData) {
         this.__tableCodeLabelMap = this.__tableCodeLabelMap || {};
         this.__uiButtonMap = parseJsonMap(this.config?.ui_button_labels_json);
-        walkTables(loadedData, this.__tableCodeLabelMap);
+        this.__tableAliasMap = parseJsonMap(this.config?.ui_table_alias_json);
+        walkTables(loadedData, this.__tableCodeLabelMap, this.__tableAliasMap);
         await super._processData(...arguments);
         this.__uiButtonMap = parseJsonMap(this.config?.ui_button_labels_json);
-        walkTables(this, this.__tableCodeLabelMap);
+        this.__tableAliasMap = parseJsonMap(this.config?.ui_table_alias_json);
+        walkTables(this, this.__tableCodeLabelMap, this.__tableAliasMap);
         patchOrderPrinting(this);
         ensureObserver(this);
     },

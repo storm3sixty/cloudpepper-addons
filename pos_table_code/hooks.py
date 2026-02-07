@@ -56,6 +56,7 @@ POS_CONFIG_FORM_CANDIDATES = [
             <group string="POS UI Designer">
                 <field name="ui_enable_drag_and_drop"/>
                 <field name="ui_button_labels_json" widget="text"/>
+                <field name="ui_table_alias_json" widget="text"/>
                 <field name="ui_sales_receipt_note" widget="text"/>
                 <field name="ui_kitchen_receipt_note" widget="text"/>
             </group>
@@ -68,6 +69,7 @@ POS_CONFIG_FORM_CANDIDATES = [
             <group string="POS UI Designer">
                 <field name="ui_enable_drag_and_drop"/>
                 <field name="ui_button_labels_json" widget="text"/>
+                <field name="ui_table_alias_json" widget="text"/>
                 <field name="ui_sales_receipt_note" widget="text"/>
                 <field name="ui_kitchen_receipt_note" widget="text"/>
             </group>
