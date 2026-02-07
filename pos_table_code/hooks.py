@@ -1,37 +1,6 @@
 from odoo import SUPERUSER_ID, api
 
 
-FLOOR_FORM_CANDIDATES = [
-    """
-    <data>
-        <xpath expr="//field[@name='table_ids']/tree/field[@name='table_number']" position="after">
-            <field name="table_code"/>
-        </xpath>
-    </data>
-    """,
-    """
-    <data>
-        <xpath expr="//field[@name='table_ids']/list/field[@name='table_number']" position="after">
-            <field name="table_code"/>
-        </xpath>
-    </data>
-    """,
-    """
-    <data>
-        <xpath expr="//field[@name='restaurant_table_ids']/tree/field[@name='table_number']" position="after">
-            <field name="table_code"/>
-        </xpath>
-    </data>
-    """,
-    """
-    <data>
-        <xpath expr="//field[@name='restaurant_table_ids']/list/field[@name='table_number']" position="after">
-            <field name="table_code"/>
-        </xpath>
-    </data>
-    """,
-]
-
 TABLE_FORM_CANDIDATES = [
     """
     <data>
@@ -112,6 +81,17 @@ def _resolve_env(*args):
     raise ValueError("Unsupported post_init_hook signature")
 
 
+
+
+def _cleanup_legacy_floor_views(view_model):
+    legacy_names = [
+        "pos.table.code.floor.form.extension",
+    ]
+    legacy_views = view_model.search([("name", "in", legacy_names)])
+    if legacy_views:
+        legacy_views.unlink()
+
+
 def _find_form_view(view_model, model_name):
     return view_model.search([
         ("model", "=", model_name),
@@ -122,15 +102,7 @@ def _find_form_view(view_model, model_name):
 def ensure_dynamic_views(env):
     view_model = env["ir.ui.view"].sudo()
 
-    floor_form = _find_form_view(view_model, "restaurant.floor")
-    if floor_form:
-        _create_extension_view(
-            env,
-            floor_form,
-            "restaurant.floor",
-            FLOOR_FORM_CANDIDATES,
-            "pos.table.code.floor.form.extension",
-        )
+    _cleanup_legacy_floor_views(view_model)
 
     table_form = _find_form_view(view_model, "restaurant.table")
     if table_form:
