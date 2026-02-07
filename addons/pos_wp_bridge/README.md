@@ -33,3 +33,19 @@ The plugin exposes:
 - `GET /wp-json/odoo-bridge/v1/orders`
 
 All these endpoints require `X-Odoo-Passcode`.
+
+## Troubleshooting (module not visible in Odoo)
+
+Having `wordpress-plugin/` in the same Git repo is **not** a problem.
+Odoo only loads folders that contain `__manifest__.py` and are reachable through `addons_path`.
+
+Check these points:
+
+1. Your Odoo `addons_path` must include the directory that contains `pos_wp_bridge`.
+   - If your path is `/workspace/cloudpepper-addons`, module must be `/workspace/cloudpepper-addons/pos_wp_bridge`.
+   - In this repository, module is at `/workspace/cloudpepper-addons/addons/pos_wp_bridge`, so `addons_path` should include `/workspace/cloudpepper-addons/addons`.
+2. Restart Odoo service after changing `addons_path`.
+3. In Apps, enable Developer Mode and click **Update Apps List**.
+4. Search `pos_wp_bridge` with Apps filter removed.
+
+The `wordpress-plugin/` folder is ignored by Odoo because it has no Odoo manifest.
