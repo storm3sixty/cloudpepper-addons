@@ -1,4 +1,4 @@
-from odoo import api, fields, models
+from odoo import fields, models
 
 
 class RestaurantTable(models.Model):
@@ -8,20 +8,6 @@ class RestaurantTable(models.Model):
         string="Table Name",
         help="Custom table name shown in POS floor and receipts.",
     )
-
-    @api.model_create_multi
-    def create(self, vals_list):
-        for vals in vals_list:
-            code = vals.get("table_code")
-            if code:
-                vals["table_number"] = code
-        return super().create(vals_list)
-
-    def write(self, vals):
-        code = vals.get("table_code")
-        if code:
-            vals = dict(vals, table_number=code)
-        return super().write(vals)
 
     def _load_pos_data_fields(self, config_id):
         try:

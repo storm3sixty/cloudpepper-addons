@@ -15,10 +15,9 @@ class PosSession(models.Model):
     def _get_pos_ui_restaurant_table(self, params):
         tables = super()._get_pos_ui_restaurant_table(params)
         for table in tables:
-            label = table.get("table_code") or table.get("table_number")
+            label = table.get("table_code")
             if not label:
                 continue
-            table["table_number"] = label
             table["display_name"] = label
             table["table_name"] = label
         return tables
