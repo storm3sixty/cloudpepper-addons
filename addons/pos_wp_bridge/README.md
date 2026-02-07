@@ -49,3 +49,24 @@ Check these points:
 4. Search `pos_wp_bridge` with Apps filter removed.
 
 The `wordpress-plugin/` folder is ignored by Odoo because it has no Odoo manifest.
+
+## White screen after editing `addons_path`
+
+This is usually an Odoo config issue, not this repository layout.
+
+**Most common cause:** replacing the default Odoo addons paths instead of appending yours.
+
+Example (keep core paths + add custom path):
+
+```ini
+addons_path = /usr/lib/python3/dist-packages/odoo/addons,/opt/odoo/addons,/workspace/cloudpepper-addons/addons
+```
+
+If core paths are missing, Odoo web assets fail to load and you can get a white screen.
+
+After fixing `addons_path`:
+
+1. Restart Odoo.
+2. Clear browser cache / hard refresh.
+3. Open Developer Tools and check first failing request.
+4. Check Odoo logs for traceback around startup or `/web` requests.

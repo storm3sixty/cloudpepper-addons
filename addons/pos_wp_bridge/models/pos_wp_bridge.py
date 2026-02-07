@@ -1,9 +1,36 @@
+from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
-
-import requests
+from urllib.request import Request, urlopen
+import base64
+import json
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+
+
+def _http_get_json(url, headers=None, timeout=30):
+    req = Request(url=url, headers=headers or {}, method="GET")
+    try:
+        with urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8")
+            return resp.status, json.loads(body) if body else []
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="ignore")
+        raise UserError(_("HTTP error %(code)s from %(url)s: %(body)s", code=exc.code, url=url, body=body)) from exc
+    except URLError as exc:
+        raise UserError(_("Connection error to %(url)s: %(err)s", url=url, err=str(exc))) from exc
+
+
+def _http_get_text(url, headers=None, timeout=20):
+    req = Request(url=url, headers=headers or {}, method="GET")
+    try:
+        with urlopen(req, timeout=timeout) as resp:
+            return resp.status, resp.read().decode("utf-8")
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="ignore")
+        return exc.code, body
+    except URLError as exc:
+        raise UserError(_("Connection error to %(url)s: %(err)s", url=url, err=str(exc))) from exc
 
 
 class PosWpBridgeConfig(models.Model):
@@ -29,13 +56,13 @@ class PosWpBridgeConfig(models.Model):
         for rec in self:
             base_url = rec._normalized_base_url()
             endpoint = urljoin(base_url, "wp-json/odoo-bridge/v1/ping")
-            response = requests.get(
+            status_code, text = _http_get_text(
                 endpoint,
                 headers={"X-Odoo-Passcode": rec.odoo_passcode},
                 timeout=20,
             )
-            if response.status_code != 200:
-                raise UserError(_("Bridge test failed (%s): %s") % (response.status_code, response.text))
+            if status_code != 200:
+                raise UserError(_("Bridge test failed (%s): %s") % (status_code, text))
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
@@ -52,14 +79,13 @@ class PosWpBridgeConfig(models.Model):
         for rec in self:
             base_url = rec._normalized_base_url()
             endpoint = urljoin(base_url, "wp-json/odoo-bridge/v1/bookings")
-            response = requests.get(
+            status_code, payload = _http_get_json(
                 endpoint,
                 headers={"X-Odoo-Passcode": rec.odoo_passcode},
                 timeout=30,
             )
-            if response.status_code != 200:
-                raise UserError(_("Failed to pull bookings (%s): %s") % (response.status_code, response.text))
-            payload = response.json()
+            if status_code != 200:
+                raise UserError(_("Failed to pull bookings (%s)") % status_code)
             for item in payload:
                 Booking._upsert_from_wordpress(item, rec.id)
 
@@ -74,15 +100,17 @@ class PosWpBridgeConfig(models.Model):
 
             base_url = rec._normalized_base_url()
             endpoint = urljoin(base_url, "wp-json/odoo-bridge/v1/orders")
-            response = requests.get(
+            token = base64.b64encode(f"{rec.wc_consumer_key}:{rec.wc_consumer_secret}".encode()).decode()
+            status_code, payload = _http_get_json(
                 endpoint,
-                headers={"X-Odoo-Passcode": rec.odoo_passcode},
-                auth=(rec.wc_consumer_key, rec.wc_consumer_secret),
+                headers={
+                    "X-Odoo-Passcode": rec.odoo_passcode,
+                    "Authorization": f"Basic {token}",
+                },
                 timeout=30,
             )
-            if response.status_code != 200:
-                raise UserError(_("Failed to pull orders (%s): %s") % (response.status_code, response.text))
-            payload = response.json()
+            if status_code != 200:
+                raise UserError(_("Failed to pull orders (%s)") % status_code)
             for item in payload:
                 Order._upsert_from_wordpress(item, rec.id)
             rec.last_sync_at = fields.Datetime.now()
