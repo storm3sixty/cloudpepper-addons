@@ -13,39 +13,96 @@ function buildTableLabel(table) {
     if (!code) {
         return numberText;
     }
-    if (!numberText || numberText === code || numberText.endsWith(` - ${code}`)) {
+    if (!numberText || numberText === code || numberText === "0" || numberText.endsWith(` - ${code}`)) {
         return code;
     }
     return `${numberText} - ${code}`;
 }
 
-function applyTableLabel(table) {
+function applyLabel(table) {
     const label = buildTableLabel(table);
-    if (!label) {
+    if (!label || !table || typeof table !== "object") {
         return;
     }
     if (!Object.prototype.hasOwnProperty.call(table, "_raw_table_number")) {
         table._raw_table_number = table.table_number;
     }
+    table.table_number = label;
     table.display_name = label;
     table.table_name = label;
-    table.table_number = label;
 }
 
-function applyTableLabels(tableRecords) {
-    if (!Array.isArray(tableRecords)) {
+function walkAndApply(root) {
+    const seen = new Set();
+    const queue = [root];
+    while (queue.length) {
+        const node = queue.shift();
+        if (!node || typeof node !== "object" || seen.has(node)) {
+            continue;
+        }
+        seen.add(node);
+
+        if ("id" in node && ("table_code" in node || "table_number" in node || "table_name" in node)) {
+            applyLabel(node);
+        }
+
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                queue.push(item);
+            }
+        } else {
+            for (const value of Object.values(node)) {
+                if (value && typeof value === "object") {
+                    queue.push(value);
+                }
+            }
+        }
+    }
+}
+
+function patchOrderPrinting(store) {
+    const order = store?.get_order?.();
+    const proto = order?.constructor?.prototype;
+    if (!proto || proto.__tableCodePatched) {
         return;
     }
-    for (const table of tableRecords) {
-        applyTableLabel(table);
+
+    const original = proto.export_for_printing;
+    if (typeof original === "function") {
+        proto.export_for_printing = function (...args) {
+            const result = original.apply(this, args);
+            const label = buildTableLabel(this.getTable ? this.getTable() : null);
+            if (label && result && typeof result === "object") {
+                result.table = label;
+                result.table_name = label;
+                result.table_number = label;
+            }
+            return result;
+        };
     }
+
+    const kitchenOriginal = proto.export_for_kitchen_printing;
+    if (typeof kitchenOriginal === "function") {
+        proto.export_for_kitchen_printing = function (...args) {
+            const result = kitchenOriginal.apply(this, args);
+            const label = buildTableLabel(this.getTable ? this.getTable() : null);
+            if (label && result && typeof result === "object") {
+                result.table = label;
+                result.table_name = label;
+                result.table_number = label;
+            }
+            return result;
+        };
+    }
+
+    proto.__tableCodePatched = true;
 }
 
 patch(PosStore.prototype, {
     async _processData(loadedData) {
-        applyTableLabels(loadedData?.["restaurant.table"]);
+        walkAndApply(loadedData);
         await super._processData(...arguments);
-        applyTableLabels(this.models?.["restaurant.table"]);
-        applyTableLabels(this.data?.["restaurant.table"]);
+        walkAndApply(this);
+        patchOrderPrinting(this);
     },
 });
