@@ -8,7 +8,9 @@
     "website": "https://cloudhopper.example.com",
     "license": "LGPL-3",
     "depends": ["point_of_sale", "pos_restaurant"],
-    "data": [],
+    "data": [
+        "views/pos_config_views.xml",
+    ],
     "assets": {
         "point_of_sale._assets_pos": [
             "pos_table_code/static/src/js/table_name_patch.js",

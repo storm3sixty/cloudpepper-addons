@@ -3,13 +3,19 @@
 import { patch } from "@web/core/utils/patch";
 import { PosStore } from "@point_of_sale/app/store/pos_store";
 
-const TABLE_CONTAINER_SELECTORS = [
-    ".table",
-    ".floor-table",
-    ".restaurant-table",
-    "[data-table-id]",
-    "[data-id]",
-];
+const TABLE_CONTAINER_SELECTORS = [".table", ".floor-table", ".restaurant-table", "[data-table-id]", "[data-id]"];
+
+function parseJsonMap(raw) {
+    if (!raw) {
+        return {};
+    }
+    try {
+        const value = JSON.parse(raw);
+        return value && typeof value === "object" ? value : {};
+    } catch {
+        return {};
+    }
+}
 
 function buildTableLabel(table) {
     if (!table || typeof table !== "object") {
@@ -27,7 +33,7 @@ function buildTableLabel(table) {
     return `${numberText} - ${code}`;
 }
 
-function applyLabel(table, labelMap) {
+function applyTableLabel(table, labelMap) {
     const label = buildTableLabel(table);
     if (!label || !table || typeof table !== "object") {
         return;
@@ -37,7 +43,6 @@ function applyLabel(table, labelMap) {
     if (rawKey) {
         labelMap[rawKey] = label;
     }
-
     if (!Object.prototype.hasOwnProperty.call(table, "_raw_table_number")) {
         table._raw_table_number = table.table_number;
     }
@@ -46,7 +51,7 @@ function applyLabel(table, labelMap) {
     table.table_name = label;
 }
 
-function walkAndApply(root, labelMap) {
+function walkTables(root, labelMap) {
     const seen = new Set();
     const queue = [root];
     while (queue.length) {
@@ -55,15 +60,11 @@ function walkAndApply(root, labelMap) {
             continue;
         }
         seen.add(node);
-
         if ("id" in node && ("table_code" in node || "table_number" in node || "table_name" in node)) {
-            applyLabel(node, labelMap);
+            applyTableLabel(node, labelMap);
         }
-
         if (Array.isArray(node)) {
-            for (const item of node) {
-                queue.push(item);
-            }
+            queue.push(...node);
         } else {
             for (const value of Object.values(node)) {
                 if (value && typeof value === "object") {
@@ -74,10 +75,6 @@ function walkAndApply(root, labelMap) {
     }
 }
 
-function isSimpleNumericText(text) {
-    return /^\d+$/.test(text.trim());
-}
-
 function relabelFloorDOM(labelMap) {
     const all = document.querySelectorAll("div, span");
     for (const el of all) {
@@ -85,7 +82,7 @@ function relabelFloorDOM(labelMap) {
             continue;
         }
         const current = (el.textContent || "").trim();
-        if (!current || !isSimpleNumericText(current)) {
+        if (!current || !/^\d+$/.test(current)) {
             continue;
         }
         if (el.classList.contains("badge") || el.closest(".badge")) {
@@ -101,18 +98,48 @@ function relabelFloorDOM(labelMap) {
     }
 }
 
-function ensureDOMObserver(store) {
-    if (store.__tableCodeObserverReady) {
-        relabelFloorDOM(store.__tableCodeLabelMap || {});
+function applyButtonTextOverrides(labelMap) {
+    if (!labelMap || typeof labelMap !== "object") {
         return;
     }
+    const buttons = document.querySelectorAll("button, .btn, .nav-link");
+    for (const button of buttons) {
+        if (!button || button.children.length > 2) {
+            continue;
+        }
+        const text = (button.textContent || "").trim();
+        const replacement = labelMap[text];
+        if (replacement && replacement !== text) {
+            button.textContent = replacement;
+        }
+    }
+}
 
-    store.__tableCodeObserverReady = true;
-    const callback = () => relabelFloorDOM(store.__tableCodeLabelMap || {});
-    const observer = new MutationObserver(callback);
-    observer.observe(document.body, { subtree: true, childList: true, characterData: true });
-    store.__tableCodeObserver = observer;
-    callback();
+function enableHeaderDragAndDrop() {
+    const headers = document.querySelectorAll(".top-content .btn, header .btn, .pos-topheader .btn");
+    if (!headers.length) {
+        return;
+    }
+    for (const btn of headers) {
+        btn.setAttribute("draggable", "true");
+        btn.addEventListener("dragstart", (ev) => {
+            ev.dataTransfer?.setData("text/plain", btn.textContent || "");
+            btn.classList.add("o_dragging");
+        });
+        btn.addEventListener("dragend", () => btn.classList.remove("o_dragging"));
+        btn.addEventListener("dragover", (ev) => ev.preventDefault());
+        btn.addEventListener("drop", (ev) => {
+            ev.preventDefault();
+            const sourceText = ev.dataTransfer?.getData("text/plain");
+            if (!sourceText) {
+                return;
+            }
+            const sourceBtn = [...headers].find((h) => (h.textContent || "") === sourceText);
+            if (sourceBtn && sourceBtn !== btn && btn.parentNode) {
+                btn.parentNode.insertBefore(sourceBtn, btn);
+            }
+        });
+    }
 }
 
 function patchOrderPrinting(store) {
@@ -121,6 +148,9 @@ function patchOrderPrinting(store) {
     if (!proto || proto.__tableCodePatched) {
         return;
     }
+
+    const salesNote = store.config?.ui_sales_receipt_note || "";
+    const kitchenNote = store.config?.ui_kitchen_receipt_note || "";
 
     const original = proto.export_for_printing;
     if (typeof original === "function") {
@@ -131,6 +161,9 @@ function patchOrderPrinting(store) {
                 result.table = label;
                 result.table_name = label;
                 result.table_number = label;
+            }
+            if (salesNote && result && typeof result === "object") {
+                result.footer = [result.footer || "", salesNote].filter(Boolean).join("\n");
             }
             return result;
         };
@@ -146,6 +179,9 @@ function patchOrderPrinting(store) {
                 result.table_name = label;
                 result.table_number = label;
             }
+            if (kitchenNote && result && typeof result === "object") {
+                result.note = [result.note || "", kitchenNote].filter(Boolean).join("\n");
+            }
             return result;
         };
     }
@@ -153,13 +189,39 @@ function patchOrderPrinting(store) {
     proto.__tableCodePatched = true;
 }
 
+function ensureObserver(store) {
+    if (store.__tableCodeObserverReady) {
+        relabelFloorDOM(store.__tableCodeLabelMap || {});
+        applyButtonTextOverrides(store.__uiButtonMap || {});
+        if (store.config?.ui_enable_drag_and_drop) {
+            enableHeaderDragAndDrop();
+        }
+        return;
+    }
+
+    store.__tableCodeObserverReady = true;
+    const callback = () => {
+        relabelFloorDOM(store.__tableCodeLabelMap || {});
+        applyButtonTextOverrides(store.__uiButtonMap || {});
+        if (store.config?.ui_enable_drag_and_drop) {
+            enableHeaderDragAndDrop();
+        }
+    };
+    const observer = new MutationObserver(callback);
+    observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+    store.__tableCodeObserver = observer;
+    callback();
+}
+
 patch(PosStore.prototype, {
     async _processData(loadedData) {
         this.__tableCodeLabelMap = this.__tableCodeLabelMap || {};
-        walkAndApply(loadedData, this.__tableCodeLabelMap);
+        this.__uiButtonMap = parseJsonMap(this.config?.ui_button_labels_json);
+        walkTables(loadedData, this.__tableCodeLabelMap);
         await super._processData(...arguments);
-        walkAndApply(this, this.__tableCodeLabelMap);
+        this.__uiButtonMap = parseJsonMap(this.config?.ui_button_labels_json);
+        walkTables(this, this.__tableCodeLabelMap);
         patchOrderPrinting(this);
-        ensureDOMObserver(this);
+        ensureObserver(this);
     },
 });
