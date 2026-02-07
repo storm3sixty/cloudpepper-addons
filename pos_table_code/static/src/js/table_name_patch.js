@@ -199,6 +199,19 @@ function patchOrderPrinting(store) {
     proto.__tableCodePatched = true;
 }
 
+
+function debugTablePayload(loadedData) {
+    if (window.__posTableCodeDebugDone) {
+        return;
+    }
+    window.__posTableCodeDebugDone = true;
+    const tables = loadedData?.["restaurant.table"] || loadedData?.["pos.restaurant.table"] || [];
+    if (tables.length) {
+        console.info("[pos_table_code] first loaded table record", tables[0]);
+    } else {
+        console.warn("[pos_table_code] no restaurant table records found in loaded payload");
+    }
+}
 function ensureObserver(store) {
     if (store.__tableCodeObserverReady) {
         relabelFloorDOM(store.__tableCodeLabelMap || {});
@@ -226,6 +239,7 @@ function ensureObserver(store) {
 patch(PosStore.prototype, {
     async _processData(loadedData) {
         this.__tableCodeLabelMap = this.__tableCodeLabelMap || {};
+        debugTablePayload(loadedData);
         this.__uiButtonMap = parseJsonMap(this.config?.ui_button_labels_json);
         this.__tableAliasMap = parseJsonMap(this.config?.ui_table_alias_json);
         walkTables(loadedData, this.__tableCodeLabelMap, this.__tableAliasMap);
