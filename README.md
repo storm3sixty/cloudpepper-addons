@@ -5,6 +5,33 @@ If Odoo goes white-screen **as soon as you add this addons path**, the DB still 
 Example error:
 - `"pos.config"."ui_enable_drag_and_drop" field is undefined`
 
+## If you get: `FATAL: role "root" does not exist`
+That means `psql` tried to connect with Linux user `root` by default.
+Use one of these options instead:
+
+```bash
+# Option A: run as postgres OS user
+sudo -u postgres psql -d <YOUR_DB_NAME> -f scripts/diagnose_pos_white_screen.sql
+
+# Option B: pass DB user explicitly
+psql -U <DB_USER> -h 127.0.0.1 -p 5432 -d <YOUR_DB_NAME> -f scripts/diagnose_pos_white_screen.sql
+```
+
+If you do not know DB user/database name, get them from Odoo config:
+
+```bash
+# common locations
+cat /etc/odoo/odoo.conf
+cat /etc/odoo.conf
+```
+
+Look for:
+- `db_user`
+- `db_password`
+- `db_host`
+- `db_port`
+- `db_name` (or use your actual database name)
+
 ## Recommended recovery order
 
 ### 1) Keep problematic custom addons path removed temporarily
@@ -12,17 +39,17 @@ Start Odoo in stable mode first (without that path) so DB cleanup can be applied
 
 ### 2) Diagnose leftovers
 ```bash
-psql <YOUR_DB_NAME> -f scripts/diagnose_pos_white_screen.sql
+psql -U <DB_USER> -h <DB_HOST> -p <DB_PORT> -d <YOUR_DB_NAME> -f scripts/diagnose_pos_white_screen.sql
 ```
 
 ### 3) Run normal cleanup
 ```bash
-psql <YOUR_DB_NAME> -f scripts/cleanup_pos_table_code.sql
+psql -U <DB_USER> -h <DB_HOST> -p <DB_PORT> -d <YOUR_DB_NAME> -f scripts/cleanup_pos_table_code.sql
 ```
 
 ### 4) If still white-screen, run emergency recovery
 ```bash
-psql <YOUR_DB_NAME> -f scripts/emergency_pos_whitescreen_recovery.sql
+psql -U <DB_USER> -h <DB_HOST> -p <DB_PORT> -d <YOUR_DB_NAME> -f scripts/emergency_pos_whitescreen_recovery.sql
 ```
 
 ### 5) Rebuild and reload (required order)
