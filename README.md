@@ -1,37 +1,39 @@
 # CloudPepper Addons Cleanup
 
-If you removed `pos_table_code` from code but still get a POS white screen / Owl error, your DB likely still has stale view/field/asset records.
+If Odoo goes white-screen **as soon as you add this addons path**, the DB still has stale metadata/views/assets from old custom modules.
 
 Example error:
 - `"pos.config"."ui_enable_drag_and_drop" field is undefined`
 
-## 1) Diagnose leftovers
+## Recommended recovery order
 
+### 1) Keep problematic custom addons path removed temporarily
+Start Odoo in stable mode first (without that path) so DB cleanup can be applied.
+
+### 2) Diagnose leftovers
 ```bash
 psql <YOUR_DB_NAME> -f scripts/diagnose_pos_white_screen.sql
 ```
 
-If any rows are returned in view/custom view/field queries, continue with cleanup.
-
-## 2) Cleanup leftovers
-
+### 3) Run normal cleanup
 ```bash
 psql <YOUR_DB_NAME> -f scripts/cleanup_pos_table_code.sql
 ```
 
-## 3) Rebuild and reload (required order)
+### 4) If still white-screen, run emergency recovery
+```bash
+psql <YOUR_DB_NAME> -f scripts/emergency_pos_whitescreen_recovery.sql
+```
 
+### 5) Rebuild and reload (required order)
 1. Restart Odoo service.
-2. Run base update once:
-
+2. Run:
    ```bash
    odoo -d <YOUR_DB_NAME> -u base --stop-after-init
    ```
-
 3. Restart Odoo service again.
 4. Hard refresh browser (`Ctrl+Shift+R`).
-5. Re-open POS in a new tab/window.
+5. Re-open POS/webclient.
 
-## Why this happens even after removing addon code
-
-Odoo persists inherited views, custom user view overrides, field metadata, and compiled web assets in the database. Any stale reference to removed fields can still crash Owl rendering.
+## Why this happens
+Odoo stores inherited views, custom user view overrides, field metadata, module state, and compiled web assets in DB. Removing Python files alone is not enough if stale DB records still reference removed fields.
