@@ -1,0 +1,66 @@
+<Window x:Class="RestaurantDesktopApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:RestaurantDesktopApp.ViewModels"
+        Title="Restaurant Desktop Sync" Height="700" Width="1100">
+    <Window.DataContext>
+        <vm:MainViewModel />
+    </Window.DataContext>
+    <Grid Margin="12">
+        <TabControl>
+            <TabItem Header="Orders">
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <TextBox Margin="0 0 0 8" Text="{Binding OrderSearchText, UpdateSourceTrigger=PropertyChanged}" />
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding Orders}" AutoGenerateColumns="False" IsReadOnly="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="ID" Binding="{Binding Id}"/>
+                            <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}"/>
+                            <DataGridTextColumn Header="Total" Binding="{Binding Total}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Bookings">
+                <DataGrid ItemsSource="{Binding Bookings}" AutoGenerateColumns="False" IsReadOnly="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="ID" Binding="{Binding Id}"/>
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name}"/>
+                        <DataGridTextColumn Header="Party" Binding="{Binding PartySize}"/>
+                        <DataGridTextColumn Header="Time" Binding="{Binding BookingTime}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+            <TabItem Header="Logs / Activity">
+                <ListBox ItemsSource="{Binding Logs}" />
+            </TabItem>
+            <TabItem Header="Settings">
+                <ScrollViewer>
+                    <StackPanel Margin="8" Orientation="Vertical">
+                        <TextBlock Text="WordPress Base URL"/>
+                        <TextBox Text="{Binding Settings.BaseUrl}"/>
+                        <TextBlock Text="Auth Mode (WooCommerceKeys or AppPassword)" Margin="0 8 0 0"/>
+                        <TextBox Text="{Binding Settings.AuthMode}"/>
+                        <TextBlock Text="Username / Consumer Key" Margin="0 8 0 0"/>
+                        <TextBox Text="{Binding Settings.UsernameOrConsumerKey}"/>
+                        <TextBlock Text="Password / Consumer Secret" Margin="0 8 0 0"/>
+                        <PasswordBox x:Name="SecretBox" PasswordChanged="SecretBox_OnPasswordChanged"/>
+                        <TextBlock Text="Polling Interval (seconds)" Margin="0 8 0 0"/>
+                        <TextBox Text="{Binding Settings.PollSeconds}"/>
+                        <TextBlock Text="Printer Name" Margin="0 8 0 0"/>
+                        <TextBox Text="{Binding Settings.PrinterName}"/>
+                        <TextBlock Text="Printing Mode (WindowsDriver / EpsonEposNetwork)" Margin="0 8 0 0"/>
+                        <TextBox Text="{Binding Settings.PrintingMode}"/>
+                        <TextBlock Text="Epson Printer IP" Margin="0 8 0 0"/>
+                        <TextBox Text="{Binding Settings.EpsonEposPrinterIp}"/>
+                        <TextBlock Text="Sound Path" Margin="0 8 0 0"/>
+                        <TextBox Text="{Binding Settings.SoundPath}"/>
+                        <Button Content="Save Settings" Command="{Binding SaveSettingsCommand}" Margin="0 12 0 0"/>
+                        <Button Content="Test Print" Command="{Binding TestPrintCommand}" Margin="0 6 0 0"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>
