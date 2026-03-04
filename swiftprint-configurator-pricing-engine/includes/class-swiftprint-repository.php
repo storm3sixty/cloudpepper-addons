@@ -4,116 +4,129 @@ declare(strict_types=1);
 
 namespace SwiftPrint;
 
-use wpdb;
-
 defined('ABSPATH') || exit;
 
 final class Repository {
-    private wpdb $db;
-
-    public function __construct() {
-        global $wpdb;
-        $this->db = $wpdb;
-    }
-
     public function get_set_by_product(int $productId): ?array {
-        $cacheKey = "swiftprint_schema_{$productId}";
-        $cached   = wp_cache_get($cacheKey, 'swiftprint');
-        if (is_array($cached)) {
-            return $cached;
-        }
-
-        $table = $this->db->prefix . 'swiftprint_base_price_sets';
-        $row   = $this->db->get_row($this->db->prepare("SELECT * FROM $table WHERE product_id = %d ORDER BY id DESC LIMIT 1", $productId), ARRAY_A);
-        if (! $row) {
-            return null;
-        }
-
-        $row['quantity_settings'] = $this->decode($row['quantity_settings']);
-        $row['print_modes']       = $this->decode($row['print_modes']);
-        $row['standard_sizes']    = $this->decode($row['standard_sizes']);
-        $row['custom_size']       = $this->decode($row['custom_size']);
-        $row['turnarounds']       = $this->decode($row['turnarounds']);
-        $row['option_groups']     = $this->decode($row['option_groups']);
-        $row['smart_triggers']    = $this->decode($row['smart_triggers']);
-        $row['pricing_rows']      = $this->get_pricing_rows((int) $row['id']);
-
-        wp_cache_set($cacheKey, $row, 'swiftprint', HOUR_IN_SECONDS);
-
-        return $row;
+        return $this->get_schema_for_product($productId);
     }
 
     public function save_set(int $productId, array $data): int {
-        $table = $this->db->prefix . 'swiftprint_base_price_sets';
+        $this->save_schema_for_product($productId, $data);
 
-        $record = [
-            'product_id'         => $productId,
-            'name'               => sanitize_text_field((string) ($data['name'] ?? 'Default')),
-            'pricing_mode'       => sanitize_text_field((string) ($data['pricing_mode'] ?? 'LOOKUP')),
-            'is_static'          => ! empty($data['is_static']) ? 1 : 0,
-            'schema_version'     => (int) ($data['schema_version'] ?? 1),
-            'quantity_settings'  => wp_json_encode($data['quantity_settings'] ?? []),
-            'print_modes'        => wp_json_encode($data['print_modes'] ?? []),
-            'standard_sizes'     => wp_json_encode($data['standard_sizes'] ?? []),
-            'custom_size'        => wp_json_encode($data['custom_size'] ?? []),
-            'turnarounds'        => wp_json_encode($data['turnarounds'] ?? []),
-            'option_groups'      => wp_json_encode($data['option_groups'] ?? []),
-            'smart_triggers'     => wp_json_encode($data['smart_triggers'] ?? []),
-            'discount_enabled'   => ! empty($data['discount_enabled']) ? 1 : 0,
-            'discount_type'      => sanitize_text_field((string) ($data['discount_type'] ?? 'FIXED')),
-            'discount_value'     => (float) ($data['discount_value'] ?? 0),
-            'weight_value'       => (float) ($data['weight_value'] ?? 0),
-            'weight_per'         => sanitize_text_field((string) ($data['weight_per'] ?? 'UNIT')),
-            'ship_box_count'     => isset($data['ship_box_count']) ? (int) $data['ship_box_count'] : null,
-            'updated_at'         => current_time('mysql'),
+        return $productId;
+    }
+
+    public function get_schema_for_product(int $productId): ?array {
+        if ($productId <= 0) {
+            return null;
+        }
+
+        $raw = get_post_meta($productId, '_swiftprint_schema', true);
+        $schema = is_string($raw) && $raw !== '' ? json_decode($raw, true) : [];
+        if (! is_array($schema)) {
+            $schema = [];
+        }
+
+        $version = (int) get_post_meta($productId, '_swiftprint_schema_version', true);
+        if ($version < 1) {
+            $version = 1;
+        }
+
+        $enabled = get_post_meta($productId, '_swiftprint_enabled', true) === 'yes';
+
+        $schema = $this->with_defaults($schema);
+        $schema['product_id'] = $productId;
+        $schema['schema_version'] = $version;
+        $schema['enabled'] = $enabled;
+
+        return $schema;
+    }
+
+    public function save_schema_for_product(int $productId, array $schema): array {
+        $existingVersion = (int) get_post_meta($productId, '_swiftprint_schema_version', true);
+        $nextVersion = max(1, $existingVersion + 1);
+
+        $normalized = $this->with_defaults($schema);
+        $normalized['schema_version'] = $nextVersion;
+
+        update_post_meta($productId, '_swiftprint_schema', wp_json_encode($normalized));
+        update_post_meta($productId, '_swiftprint_schema_version', $nextVersion);
+
+        if (isset($schema['enabled'])) {
+            update_post_meta($productId, '_swiftprint_enabled', ! empty($schema['enabled']) ? 'yes' : 'no');
+        }
+
+        $normalized['product_id'] = $productId;
+        $normalized['enabled'] = get_post_meta($productId, '_swiftprint_enabled', true) === 'yes';
+
+        return $normalized;
+    }
+
+    public function search_products(string $search = '', int $limit = 50): array {
+        $args = [
+            'status' => ['publish', 'draft'],
+            'limit' => max(1, min(200, $limit)),
+            'orderby' => 'title',
+            'order' => 'ASC',
         ];
 
-        $existing = $this->get_set_by_product($productId);
-        if ($existing) {
-            $this->db->update($table, $record, ['id' => (int) $existing['id']]);
-            $setId = (int) $existing['id'];
-        } else {
-            $this->db->insert($table, $record);
-            $setId = (int) $this->db->insert_id;
+        if ($search !== '') {
+            $args['search'] = '*' . $search . '*';
         }
 
-        $this->replace_pricing_rows($setId, $data['pricing_rows'] ?? []);
-        wp_cache_delete("swiftprint_schema_{$productId}", 'swiftprint');
+        $products = wc_get_products($args);
 
-        return $setId;
+        return array_map(static function ($p) {
+            return [
+                'id' => $p->get_id(),
+                'name' => $p->get_name(),
+                'enabled' => get_post_meta($p->get_id(), '_swiftprint_enabled', true) === 'yes',
+                'schema_version' => (int) get_post_meta($p->get_id(), '_swiftprint_schema_version', true),
+            ];
+        }, $products);
     }
 
-    public function get_pricing_rows(int $setId): array {
-        $table = $this->db->prefix . 'swiftprint_pricing_rows';
-        $rows = $this->db->get_results($this->db->prepare("SELECT size_id, print_mode_key, quantity_break, total_price FROM $table WHERE base_price_set_id = %d", $setId), ARRAY_A);
-        return $rows ?: [];
-    }
-
-    private function replace_pricing_rows(int $setId, array $rows): void {
-        $table = $this->db->prefix . 'swiftprint_pricing_rows';
-        $this->db->delete($table, ['base_price_set_id' => $setId]);
-
-        foreach ($rows as $row) {
-            if (! isset($row['size_id'], $row['print_mode_key'], $row['quantity_break'], $row['total_price'])) {
-                continue;
-            }
-            $this->db->insert($table, [
-                'base_price_set_id' => $setId,
-                'size_id' => sanitize_text_field((string) $row['size_id']),
-                'print_mode_key' => sanitize_text_field((string) $row['print_mode_key']),
-                'quantity_break' => max(1, (int) $row['quantity_break']),
-                'total_price' => (float) $row['total_price'],
-            ]);
-        }
-    }
-
-    private function decode(?string $raw): array {
-        if (! $raw) {
-            return [];
-        }
-
-        $decoded = json_decode($raw, true);
-
-        return is_array($decoded) ? $decoded : [];
+    private function with_defaults(array $schema): array {
+        return wp_parse_args($schema, [
+            'name' => 'Default',
+            'pricing_mode' => 'LOOKUP',
+            'enabled' => false,
+            'discount_enabled' => false,
+            'discount_type' => 'FIXED',
+            'discount_value' => 0,
+            'weight_value' => 0,
+            'weight_per' => 'UNIT',
+            'same_day_timezone' => wp_timezone_string() ?: 'UTC',
+            'quantity_settings' => [
+                'display_type' => 'TEXTBOX',
+                'breaks' => [25, 50, 100],
+                'min_qty' => 1,
+                'max_qty' => 100000,
+                'step' => 1,
+            ],
+            'print_modes' => [
+                'sides' => 'SINGLE',
+                'allow_full_colour' => true,
+                'allow_bw' => true,
+                'allow_mixed_front_back' => false,
+                'keys' => ['SIMPLE_S1'],
+            ],
+            'standard_sizes' => [],
+            'custom_size' => [
+                'enabled' => false,
+                'min_w' => 0,
+                'max_w' => 0,
+                'min_h' => 0,
+                'max_h' => 0,
+                'step' => 1,
+                'area_unit' => 'sqmm',
+                'area_ranges' => [],
+            ],
+            'turnarounds' => [],
+            'option_groups' => [],
+            'smart_triggers' => [],
+            'pricing_rows' => [],
+        ]);
     }
 }

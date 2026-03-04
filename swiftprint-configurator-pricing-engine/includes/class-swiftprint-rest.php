@@ -24,17 +24,27 @@ final class Rest {
             'callback' => [$this, 'quote'],
         ]);
 
-        register_rest_route('swiftprint/v1', '/schema/(?P<product_id>\d+)', [
+        register_rest_route('swiftprint/v1', '/products', [
             'methods' => 'GET',
-            'permission_callback' => '__return_true',
-            'callback' => [$this, 'schema'],
+            'permission_callback' => [$this, 'can_manage'],
+            'callback' => [$this, 'products'],
         ]);
 
-        register_rest_route('swiftprint/v1', '/admin/schema/(?P<product_id>\d+)', [
-            'methods' => ['GET', 'POST'],
-            'permission_callback' => static fn () => current_user_can('manage_woocommerce'),
-            'callback' => [$this, 'admin_schema'],
+        register_rest_route('swiftprint/v1', '/schema/(?P<product_id>\d+)', [
+            'methods' => 'GET',
+            'permission_callback' => [$this, 'can_manage'],
+            'callback' => [$this, 'schema_get'],
         ]);
+
+        register_rest_route('swiftprint/v1', '/schema/(?P<product_id>\d+)', [
+            'methods' => 'POST',
+            'permission_callback' => [$this, 'can_manage'],
+            'callback' => [$this, 'schema_post'],
+        ]);
+    }
+
+    public function can_manage(): bool {
+        return current_user_can('manage_woocommerce') || current_user_can('manage_options');
     }
 
     public function quote(WP_REST_Request $request): WP_REST_Response|WP_Error {
@@ -51,21 +61,37 @@ final class Rest {
         return new WP_REST_Response($quote, 200);
     }
 
-    public function schema(WP_REST_Request $request): WP_REST_Response {
-        $productId = (int) $request->get_param('product_id');
-        $schema = $this->repository->get_set_by_product($productId);
-        return new WP_REST_Response($schema ?: [], 200);
+    public function products(WP_REST_Request $request): WP_REST_Response {
+        $search = sanitize_text_field((string) $request->get_param('search'));
+        $items = $this->repository->search_products($search, 100);
+
+        return new WP_REST_Response(['items' => $items], 200);
     }
 
-    public function admin_schema(WP_REST_Request $request): WP_REST_Response|WP_Error {
+    public function schema_get(WP_REST_Request $request): WP_REST_Response|WP_Error {
         $productId = (int) $request->get_param('product_id');
-        if ($request->get_method() === 'GET') {
-            return new WP_REST_Response($this->repository->get_set_by_product($productId) ?: [], 200);
+        $schema = $this->repository->get_schema_for_product($productId);
+
+        if (! $schema) {
+            return new WP_Error('swiftprint_not_found', 'Product not found.', ['status' => 404]);
         }
 
-        $body = (array) $request->get_json_params();
-        $setId = $this->repository->save_set($productId, $body);
+        return new WP_REST_Response($schema, 200);
+    }
 
-        return new WP_REST_Response(['success' => true, 'set_id' => $setId], 200);
+    public function schema_post(WP_REST_Request $request): WP_REST_Response|WP_Error {
+        $productId = (int) $request->get_param('product_id');
+        $body = (array) $request->get_json_params();
+        if ($productId <= 0) {
+            return new WP_Error('swiftprint_bad_product', 'Invalid product.', ['status' => 400]);
+        }
+
+        $saved = $this->repository->save_schema_for_product($productId, $body);
+
+        return new WP_REST_Response([
+            'success' => true,
+            'schema' => $saved,
+            'schema_version' => (int) ($saved['schema_version'] ?? 1),
+        ], 200);
     }
 }

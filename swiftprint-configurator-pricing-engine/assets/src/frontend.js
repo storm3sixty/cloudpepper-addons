@@ -3,11 +3,11 @@ import apiFetch from '@wordpress/api-fetch';
 
 const el = createElement;
 
-const modeLabel = {
-  SIMPLE_S1: 'Single sided',
-  FC_BOTH: 'Full colour both sides',
-  BW_BOTH: 'B&W both sides'
-};
+function modesFromSchema(schema) {
+  if (Array.isArray(schema?.print_modes)) return schema.print_modes;
+  const keys = schema?.print_modes?.keys || ['SIMPLE_S1'];
+  return keys.map((k) => ({ key: k, label: k }));
+}
 
 function preindex(rows = []) {
   const idx = {};
@@ -21,11 +21,11 @@ function preindex(rows = []) {
 }
 
 function Configurator({ schema, productId, restUrl }) {
+  const modes = modesFromSchema(schema);
   const [quantity, setQuantity] = useState(100);
   const [sizeId, setSizeId] = useState(schema?.standard_sizes?.[0]?.size_id || '');
-  const [printModeKey, setPrintModeKey] = useState(schema?.print_modes?.[0]?.key || 'SIMPLE_S1');
+  const [printModeKey, setPrintModeKey] = useState(modes?.[0]?.key || 'SIMPLE_S1');
   const [turnaroundId, setTurnaroundId] = useState(schema?.turnarounds?.[0]?.id || '');
-  const [selectedOptionItems, setSelectedOptionItems] = useState([]);
   const [quote, setQuote] = useState(null);
   const pricingIndex = useMemo(() => preindex(schema?.pricing_rows || []), [schema]);
 
@@ -41,11 +41,13 @@ function Configurator({ schema, productId, restUrl }) {
   }, [quantity, sizeId, printModeKey, pricingIndex]);
 
   const requestQuote = async () => {
-    const selections = { quantity, size_id: sizeId, print_mode_key: printModeKey, turnaround_id: turnaroundId, selected_option_items: selectedOptionItems };
-    const response = await apiFetch({ path: `${restUrl}/quote`, method: 'POST', data: { product_id: productId, base_price_set_id: Number(schema.id), schema_version: Number(schema.schema_version), selections } });
+    const selections = { quantity, size_id: sizeId, print_mode_key: printModeKey, turnaround_id: turnaroundId, selected_option_items: [] };
+    const response = await apiFetch({ path: `${restUrl}/quote`, method: 'POST', data: { product_id: productId, base_price_set_id: Number(schema.product_id || schema.id || productId), schema_version: Number(schema.schema_version || 1), selections } });
     setQuote(response);
-    document.getElementById('swiftprint_quote_token').value = response.quote_token;
-    document.getElementById('swiftprint_selection').value = JSON.stringify(selections);
+    const token = document.getElementById('swiftprint_quote_token');
+    const selection = document.getElementById('swiftprint_selection');
+    if (token) token.value = response.quote_token;
+    if (selection) selection.value = JSON.stringify(selections);
   };
 
   return el('div', { className: 'swiftprint-configurator' },
@@ -55,14 +57,13 @@ function Configurator({ schema, productId, restUrl }) {
     el('label', {}, 'Size'),
     el('select', { value: sizeId, onChange: (e) => setSizeId(e.target.value) }, (schema?.standard_sizes || []).map((s) => el('option', { key: s.size_id, value: s.size_id }, s.name))),
     el('label', {}, 'Print mode'),
-    el('select', { value: printModeKey, onChange: (e) => setPrintModeKey(e.target.value) }, (schema?.print_modes || []).map((m) => el('option', { key: m.key, value: m.key }, m.label || modeLabel[m.key] || m.key))),
+    el('select', { value: printModeKey, onChange: (e) => setPrintModeKey(e.target.value) }, modes.map((m) => el('option', { key: m.key, value: m.key }, m.label || m.key))),
     el('label', {}, 'Turnaround'),
     el('select', { value: turnaroundId, onChange: (e) => setTurnaroundId(e.target.value) }, (schema?.turnarounds || []).map((t) => el('option', { key: t.id, value: t.id }, t.name))),
     el('p', {}, `Instant estimate: ${estimate.toFixed(2)}`),
     el('button', { type: 'button', onClick: requestQuote }, 'Lock price'),
     quote ? el('div', { className: 'swiftprint-breakdown' },
-      el('strong', {}, `Total: ${quote.total} ${quote.currency}`),
-      el('ul', {}, quote.breakdown.map((l) => el('li', { key: l.code }, `${l.label}: ${l.amount}`)))
+      el('strong', {}, `Total: ${quote.total} ${quote.currency}`)
     ) : null
   );
 }

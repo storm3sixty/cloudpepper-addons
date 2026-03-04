@@ -39,12 +39,10 @@ final class Admin {
     }
 
     public function enqueue(string $hook): void {
-        // Known hook suffixes for submenu under WooCommerce or potential top-level migration.
         if ($hook !== 'woocommerce_page_swiftprint' && $hook !== 'toplevel_page_swiftprint') {
             return;
         }
 
-        // Aid diagnosis in debug environments for hook suffix mismatches.
         if (defined('WP_DEBUG') && WP_DEBUG) {
             error_log('[SwiftPrint] admin_enqueue_scripts hook: ' . $hook . '; registered page: ' . $this->pageHookSuffix);
         }
@@ -81,17 +79,11 @@ final class Admin {
         }
 
         wp_localize_script('swiftprint-admin', 'SwiftPrintAdmin', [
-            'restUrl' => esc_url_raw(rest_url('swiftprint/v1/admin')),
+            'restUrl' => esc_url_raw(rest_url('swiftprint/v1')),
             'nonce' => wp_create_nonce('wp_rest'),
             'pluginUrl' => esc_url_raw(SWIFTPRINT_PLUGIN_URL),
             'version' => SWIFTPRINT_VERSION,
-            'products' => $this->products(),
+            'initialProductId' => isset($_GET['product_id']) ? (int) $_GET['product_id'] : 0,
         ]);
-    }
-
-    private function products(): array {
-        $products = wc_get_products(['status' => ['publish', 'draft'], 'limit' => 200]);
-
-        return array_map(static fn ($p) => ['id' => $p->get_id(), 'name' => $p->get_name()], $products);
     }
 }

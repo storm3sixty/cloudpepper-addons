@@ -10,29 +10,14 @@ Production-oriented WooCommerce plugin for print shops using **simple products**
 4. Open **WooCommerce > SwiftPrint** and save schema JSON for a product.
 5. In product edit screen, enable **Enable SwiftPrint Configurator**.
 
-## Data schema (stored in custom tables)
+## Data schema (stored per product in post meta)
 
-### `wp_swiftprint_base_price_sets`
-Contains the schema payload and pricing settings:
-- `pricing_mode`: `LOOKUP | LPI | LUPI | UP`
-- quantity settings (`DROPDOWN | TEXTBOX`) including min/max/step.
-- print modes (`front_mode`, `back_mode`, `sides`, `print_mode_key`).
-- standard sizes and custom size ranges.
-- turnarounds (`cost_type`, `cost_value`, `production_days`, `cutoff_time`).
-- option groups/items and smart triggers.
-- discount + weight settings and `schema_version`.
+Schema is persisted on each WooCommerce product:
+- `_swiftprint_schema` (JSON payload)
+- `_swiftprint_schema_version` (auto-incremented on save)
+- `_swiftprint_enabled` (`yes`/`no`)
 
-### `wp_swiftprint_pricing_rows`
-Normalized price rows:
-- `base_price_set_id`
-- `size_id`
-- `print_mode_key`
-- `quantity_break`
-- `total_price`
-
-### `wp_swiftprint_quote_logs`
-Audit trail of issued quote tokens:
-- token hash, payload, total/currency, expiry.
+Quote logs remain in `wp_swiftprint_quote_logs`.
 
 ## CSV format examples
 
@@ -67,8 +52,9 @@ Given breakpoints `(50 => 20.00)` and `(100 => 30.00)`, quantity=75:
 ## REST API
 
 - `POST /swiftprint/v1/quote`
-- `GET /swiftprint/v1/schema/{product_id}`
-- `GET|POST /swiftprint/v1/admin/schema/{product_id}` (admin only)
+- `GET /swiftprint/v1/products?search=` (admin only)
+- `GET /swiftprint/v1/schema/{product_id}` (admin only)
+- `POST /swiftprint/v1/schema/{product_id}` (admin only)
 
 ## Extension hooks / filters
 

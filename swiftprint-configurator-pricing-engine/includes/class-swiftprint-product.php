@@ -11,6 +11,7 @@ final class Product {
 
     public function hooks(): void {
         add_action('woocommerce_product_options_general_product_data', [$this, 'render_product_flag']);
+        add_action('woocommerce_product_options_general_product_data', [$this, 'render_edit_link']);
         add_action('woocommerce_process_product_meta', [$this, 'save_product_flag']);
         add_action('woocommerce_before_add_to_cart_form', [$this, 'render_configurator_root']);
         add_filter('woocommerce_add_to_cart_validation', [$this, 'validate_add_to_cart'], 10, 5);
@@ -25,6 +26,17 @@ final class Product {
             'label' => __('Enable SwiftPrint Configurator', 'swiftprint-configurator'),
             'description' => __('Replace standard add-to-cart with SwiftPrint configurator.', 'swiftprint-configurator'),
         ]);
+    }
+
+
+    public function render_edit_link(): void {
+        global $post;
+        if (! $post) {
+            return;
+        }
+
+        $url = admin_url('admin.php?page=swiftprint&product_id=' . absint($post->ID));
+        echo '<p class="form-field"><a class="button" href="' . esc_url($url) . '">' . esc_html__('Edit SwiftPrint Settings', 'swiftprint-configurator') . '</a></p>';
     }
 
     public function save_product_flag(int $productId): void {
