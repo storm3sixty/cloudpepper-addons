@@ -19,7 +19,8 @@ final class Print_Platform_Plugin {
         add_action('plugins_loaded', [$this, 'maybe_upgrade']);
         add_action('rest_api_init', [$this, 'register_rest_routes']);
 
-        add_action('admin_post_pp_add_product', [$this, 'handle_add_product']);
+        add_action('admin_post_pp_create_product', [$this, 'handle_create_product']);
+        add_action('admin_post_pp_add_product', [$this, 'handle_create_product']);
         add_action('admin_post_pp_toggle_published', [$this, 'handle_toggle_published']);
         add_action('admin_post_pp_duplicate_product', [$this, 'handle_duplicate_product']);
         add_action('admin_post_pp_delete_product', [$this, 'handle_delete_product']);
@@ -141,6 +142,35 @@ final class Print_Platform_Plugin {
         ];
     }
 
+
+    private function table_exists(string $tableName): bool {
+        global $wpdb;
+        $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $tableName));
+        return is_string($found) && $found === $tableName;
+    }
+
+    private function pricing_tables_ready(): bool {
+        global $wpdb;
+        return $this->table_exists($wpdb->prefix . 'pp_base_price_sets')
+            && $this->table_exists($wpdb->prefix . 'pp_base_price_sizes')
+            && $this->table_exists($wpdb->prefix . 'pp_pricing_rows');
+    }
+
+    private function render_notice_from_query(): void {
+        if (! empty($_GET['pp_notice'])) {
+            echo '<div class="notice notice-success"><p>' . esc_html(sanitize_text_field(urldecode((string) $_GET['pp_notice']))) . '</p></div>';
+        }
+        if (! empty($_GET['pp_error'])) {
+            echo '<div class="notice notice-error"><p>' . esc_html(sanitize_text_field(urldecode((string) $_GET['pp_error']))) . '</p></div>';
+        }
+    }
+
+    private function redirect_with_message(string $url, string $message, bool $error = false): void {
+        $url = add_query_arg($error ? 'pp_error' : 'pp_notice', rawurlencode($message), $url);
+        wp_safe_redirect($url);
+        exit;
+    }
+
     public function render_products_page(): void {
         $this->must_manage();
         $searchId = isset($_GET['pp_search_id']) ? absint($_GET['pp_search_id']) : 0;
@@ -154,9 +184,15 @@ final class Print_Platform_Plugin {
         $query = new WP_Query($args);
 
         echo '<div class="wrap pp-wrap"><h1 class="wp-heading-inline">' . esc_html__('Print Platform – Products', 'print-platform') . '</h1><hr class="wp-header-end" />';
+        $this->render_notice_from_query();
+        if (! $this->pricing_tables_ready()) {
+            echo '<div class="notice notice-warning"><p>' . esc_html__('Pricing tables are missing. Please deactivate and reactivate Print Platform plugin to run migrations.', 'print-platform') . '</p></div>';
+            echo '<p><a class="button" href="' . esc_url(admin_url('admin.php?page=print-platform-products')) . '">' . esc_html__('Back to Products', 'print-platform') . '</a></p></div>';
+            return;
+        }
         echo '<div class="pp-toolbar">';
-        echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">'; wp_nonce_field('pp_add_product');
-        echo '<input type="hidden" name="action" value="pp_add_product" />'; submit_button(__('+ Add Product', 'print-platform'), 'primary', 'submit', false); echo '</form>';
+        echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">'; wp_nonce_field('pp_create_product');
+        echo '<input type="hidden" name="action" value="pp_create_product" />'; submit_button(__('+ Add Product', 'print-platform'), 'primary', 'submit', false); echo '</form>';
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">'; wp_nonce_field('pp_export_csv');
         echo '<input type="hidden" name="action" value="pp_export_csv" />'; submit_button(__('Export', 'print-platform'), 'secondary', 'submit', false); echo '</form>';
         echo '<form method="post" enctype="multipart/form-data" action="' . esc_url(admin_url('admin-post.php')) . '">'; wp_nonce_field('pp_import_csv');
@@ -191,6 +227,12 @@ final class Print_Platform_Plugin {
         $this->must_manage();
         $action = isset($_GET['view']) ? sanitize_key((string) $_GET['view']) : 'list';
         echo '<div class="wrap pp-wrap"><h1 class="wp-heading-inline">Base Price Sets</h1><hr class="wp-header-end" />';
+        $this->render_notice_from_query();
+        if (! $this->pricing_tables_ready()) {
+            echo '<div class="notice notice-warning"><p>' . esc_html__('Pricing tables are missing. Please deactivate and reactivate Print Platform plugin to run migrations.', 'print-platform') . '</p></div>';
+            echo '</div>';
+            return;
+        }
         if ($action === 'edit') {
             $this->render_base_price_set_edit();
             echo '</div>';
@@ -381,13 +423,25 @@ final class Print_Platform_Plugin {
         $this->must_manage();
         $productId = isset($_GET['product_id']) ? absint($_GET['product_id']) : 0;
         $product = $productId ? wc_get_product($productId) : null;
-        if (! $product) wp_die('Invalid product.');
+        $productPost = $productId ? get_post($productId) : null;
+        if (! $product || ! $productPost || $productPost->post_type !== 'product') {
+            echo '<div class="wrap"><h1>' . esc_html__('Invalid product', 'print-platform') . '</h1>';
+            echo '<p>' . esc_html__('The requested product does not exist or is not a WooCommerce product.', 'print-platform') . '</p>';
+            echo '<p><a class="button" href="' . esc_url(admin_url('admin.php?page=print-platform-products')) . '">' . esc_html__('Back to Products', 'print-platform') . '</a></p></div>';
+            return;
+        }
 
         $tab = isset($_GET['tab']) ? sanitize_key((string) $_GET['tab']) : 'product-information';
         $tabs = ['product-information' => 'Product Information', 'print-editor' => 'Print Editor', 'attributes' => 'Attributes', 'related-products' => 'Related Products', 'alternate-view' => 'Alternate View', 'comments' => 'Comments'];
         $meta = function (string $key, string $default = '') use ($productId): string { $v = get_post_meta($productId, $key, true); return $v === '' ? $default : (string) $v; };
 
         echo '<div class="wrap pp-wrap"><div class="pp-head"><h1>Edit Product: ' . esc_html($product->get_name()) . '</h1>';
+        $this->render_notice_from_query();
+        if (! $this->pricing_tables_ready()) {
+            echo '<div class="notice notice-warning"><p>' . esc_html__('Pricing tables are missing. Please deactivate and reactivate Print Platform plugin to run migrations.', 'print-platform') . '</p></div>';
+            echo '<p><a class="button" href="' . esc_url(admin_url('admin.php?page=print-platform-products')) . '">' . esc_html__('Back to Products', 'print-platform') . '</a></p></div>';
+            return;
+        }
         if ($tab === 'product-information') {
             echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
             wp_nonce_field('pp_save_product_' . $productId);
@@ -442,6 +496,55 @@ final class Print_Platform_Plugin {
         $this->field_text('Integration', 'pp_integration', $meta('_pp_integration'));
         echo '</section></div></form>';
 
+        if ($selectedSetId <= 0 || $selectedSizeId <= 0) {
+            echo '<div class="notice notice-warning"><p>' . esc_html__('Select Base Price Set and Size to enable pricing editor.', 'print-platform') . '</p></div>';
+        }
+
+        $diagPrintMode = sanitize_text_field((string) get_post_meta($productId, '_pp_print_mode_key', true));
+        if ($diagPrintMode === '') {
+            $diagPrintMode = 'SINGLE';
+        }
+        $diagSet = $selectedSetId > 0 ? $this->get_base_price_set($selectedSetId) : null;
+        $diagQtyBreaks = 0;
+        $diagPrintModesCount = 0;
+        $diagPriceEntries = 0;
+        $diagQuoteError = '';
+        if (is_array($diagSet)) {
+            $breaks = is_string($diagSet['qty_breaks'] ?? null) ? json_decode((string) $diagSet['qty_breaks'], true) : [];
+            $diagQtyBreaks = is_array($breaks) ? count($breaks) : 0;
+            $modes = is_string($diagSet['print_modes'] ?? null) ? json_decode((string) $diagSet['print_modes'], true) : [];
+            $diagPrintModesCount = is_array($modes) ? count($modes) : 0;
+            if ($selectedSizeId > 0) {
+                global $wpdb;
+                $tablePricing = $wpdb->prefix . 'pp_pricing_rows';
+                $diagPriceEntries = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$tablePricing} WHERE base_price_set_id=%d AND size_id=%d AND print_mode_key=%s", $selectedSetId, $selectedSizeId, $diagPrintMode));
+                $diagReq = new WP_REST_Request('POST', '/print-platform/v1/quote');
+                $diagReq->set_param('product_id', $productId);
+                $diagReq->set_param('quantity', max(1, (int) ($diagSet['min_qty'] ?? 1)));
+                $diagReq->set_param('size_id', $selectedSizeId);
+                $diagReq->set_param('print_mode_key', $diagPrintMode);
+                $quoteResponse = $this->rest_quote($diagReq);
+                if ($quoteResponse instanceof WP_REST_Response) {
+                    $data = $quoteResponse->get_data();
+                    if (is_array($data) && isset($data['error'])) {
+                        $diagQuoteError = (string) $data['error'];
+                    }
+                }
+            }
+        }
+
+        echo '<div class="pp-card" style="margin-top:16px"><h2>Admin Diagnostics</h2>';
+        echo '<ul>';
+        echo '<li><strong>product_id:</strong> ' . esc_html((string) $productId) . '</li>';
+        echo '<li><strong>base_price_set_id:</strong> ' . esc_html((string) $selectedSetId) . '</li>';
+        echo '<li><strong>size_id:</strong> ' . esc_html((string) $selectedSizeId) . '</li>';
+        echo '<li><strong>print_mode_key:</strong> ' . esc_html($diagPrintMode) . '</li>';
+        echo '<li><strong>qty breaks count:</strong> ' . esc_html((string) $diagQtyBreaks) . '</li>';
+        echo '<li><strong>print modes count:</strong> ' . esc_html((string) $diagPrintModesCount) . '</li>';
+        echo '<li><strong>price entries count:</strong> ' . esc_html((string) $diagPriceEntries) . '</li>';
+        echo '<li><strong>last quote test error:</strong> ' . esc_html($diagQuoteError !== '' ? $diagQuoteError : '—') . '</li>';
+        echo '</ul></div>';
+
         echo '<script>window.ppSetsByCategory=' . wp_json_encode($setsByCategory) . ';window.ppSizesBySet=' . wp_json_encode($sizesBySet) . ';window.ppSelectedSetId=' . (int) $selectedSetId . ';window.ppSelectedSizeId=' . (int) $selectedSizeId . ';</script>';
         echo '<script>(function(){const cat=document.getElementById("pp_category"),setSel=document.getElementById("pp_base_price_set_id"),sizeSel=document.getElementById("pp_size_id"),n=document.getElementById("pp_price_mapping_notice");if(!cat||!setSel||!sizeSel){return;}function renderSets(){const c=parseInt(cat.value||"0",10),sets=(window.ppSetsByCategory&&window.ppSetsByCategory[c])||[];setSel.innerHTML="";if(!c){const o=document.createElement("option");o.value="";o.textContent="Select a category first";setSel.appendChild(o);sizeSel.innerHTML="";n.textContent="Select a category to load base price sets.";return;}if(!sets.length){const o=document.createElement("option");o.value="";o.textContent="No base price sets for this category";setSel.appendChild(o);sizeSel.innerHTML="";n.textContent="Create a Base Price Set for this category.";return;}n.textContent="";sets.forEach(function(s){const o=document.createElement("option");o.value=s.id;o.textContent=s.name;if(parseInt(window.ppSelectedSetId||0,10)===parseInt(s.id,10))o.selected=true;setSel.appendChild(o);});renderSizes();}function renderSizes(){const sid=parseInt(setSel.value||"0",10),sizes=(window.ppSizesBySet&&window.ppSizesBySet[sid])||[];sizeSel.innerHTML="";if(!sid){const o=document.createElement("option");o.value="";o.textContent="Select base price first";sizeSel.appendChild(o);return;}if(!sizes.length){const o=document.createElement("option");o.value="";o.textContent="No sizes for selected base price";sizeSel.appendChild(o);return;}sizes.forEach(function(s){const o=document.createElement("option");o.value=s.id;o.textContent=s.label;if(parseInt(window.ppSelectedSizeId||0,10)===parseInt(s.id,10))o.selected=true;sizeSel.appendChild(o);});}cat.addEventListener("change",function(){window.ppSelectedSetId=0;window.ppSelectedSizeId=0;renderSets();});setSel.addEventListener("change",function(){window.ppSelectedSizeId=0;renderSizes();});renderSets();})();</script>';
 
@@ -449,21 +552,36 @@ final class Print_Platform_Plugin {
     }
 
     private function get_base_price_sets(): array {
-        global $wpdb; return $wpdb->get_results("SELECT * FROM {$wpdb->prefix}pp_base_price_sets ORDER BY id DESC", ARRAY_A) ?: [];
+        global $wpdb; return $wpdb->get_results($wpdb->prepare("SELECT * FROM {$wpdb->prefix}pp_base_price_sets WHERE %d=%d ORDER BY id DESC", 1, 1), ARRAY_A) ?: [];
     }
     private function get_base_price_set(int $id): ?array {
+        if ($id <= 0 || ! $this->pricing_tables_ready()) {
+            return null;
+        }
         global $wpdb; $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}pp_base_price_sets WHERE id=%d", $id), ARRAY_A); return $row ?: null;
     }
     private function get_sizes_for_set(int $setId): array {
+        if ($setId <= 0 || ! $this->pricing_tables_ready()) {
+            return [];
+        }
         global $wpdb; return $wpdb->get_results($wpdb->prepare("SELECT * FROM {$wpdb->prefix}pp_base_price_sizes WHERE base_price_set_id=%d ORDER BY id ASC", $setId), ARRAY_A) ?: [];
     }
     private function count_sizes(int $setId): int {
+        if ($setId <= 0 || ! $this->pricing_tables_ready()) {
+            return 0;
+        }
         global $wpdb; return (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->prefix}pp_base_price_sizes WHERE base_price_set_id=%d", $setId));
     }
     private function size_label(int $sizeId): string {
+        if ($sizeId <= 0 || ! $this->pricing_tables_ready()) {
+            return 'Unknown';
+        }
         global $wpdb; return (string) ($wpdb->get_var($wpdb->prepare("SELECT label FROM {$wpdb->prefix}pp_base_price_sizes WHERE id=%d", $sizeId)) ?: 'Unknown');
     }
     private function get_pricing_rows(int $setId): array {
+        if ($setId <= 0 || ! $this->pricing_tables_ready()) {
+            return [];
+        }
         global $wpdb; return $wpdb->get_results($wpdb->prepare("SELECT * FROM {$wpdb->prefix}pp_pricing_rows WHERE base_price_set_id=%d ORDER BY size_id,print_mode_key,qty_break", $setId), ARRAY_A) ?: [];
     }
 
@@ -477,9 +595,23 @@ final class Print_Platform_Plugin {
             'pricing_mode' => sanitize_text_field((string) ($_POST['pricing_mode'] ?? 'LUPI')),
             'updated_at' => current_time('mysql'),
         ];
-        if ($id > 0) $wpdb->update($table, $data, ['id' => $id]);
-        else { $data += ['created_at' => current_time('mysql'), 'quantity_mode' => 'dropdown', 'qty_breaks' => wp_json_encode([25,50,100]), 'min_qty' => 1, 'max_qty' => 100000, 'step' => 1, 'print_modes' => wp_json_encode([['key'=>'SINGLE','label'=>'Single sided'],['key'=>'DOUBLE','label'=>'Double sided']])]; $wpdb->insert($table, $data); $id = (int) $wpdb->insert_id; }
-        wp_safe_redirect(admin_url('admin.php?page=print-platform-base-price-sets&view=edit&id=' . $id . '&tab=general')); exit;
+        if ($data['name'] === '' || $data['category_term_id'] <= 0) {
+            $this->redirect_with_message(admin_url('admin.php?page=print-platform-base-price-sets&view=edit&id=' . $id . '&tab=general'), 'Name and category are required.', true);
+        }
+        if ($id > 0) {
+            $ok = $wpdb->update($table, $data, ['id' => $id]);
+            if ($ok === false) {
+                $this->redirect_with_message(admin_url('admin.php?page=print-platform-base-price-sets&view=edit&id=' . $id . '&tab=general'), 'Failed to update base price set.', true);
+            }
+        } else {
+            $data += ['created_at' => current_time('mysql'), 'quantity_mode' => 'dropdown', 'qty_breaks' => wp_json_encode([25,50,100]), 'min_qty' => 1, 'max_qty' => 100000, 'step' => 1, 'print_modes' => wp_json_encode([['key'=>'SINGLE','label'=>'Single sided'],['key'=>'DOUBLE','label'=>'Double sided']])];
+            $ok = $wpdb->insert($table, $data);
+            if ($ok === false) {
+                $this->redirect_with_message(admin_url('admin.php?page=print-platform-base-price-sets'), 'Failed to create base price set.', true);
+            }
+            $id = (int) $wpdb->insert_id;
+        }
+        $this->redirect_with_message(admin_url('admin.php?page=print-platform-base-price-sets&view=edit&id=' . $id . '&tab=general'), 'Saved successfully');
     }
 
     public function handle_save_quantities(): void {
@@ -654,15 +786,19 @@ final class Print_Platform_Plugin {
         wp_safe_redirect(admin_url('admin.php?page=print-platform-base-price-sets&view=edit&id=' . $setId . '&tab=general')); exit;
     }
 
-    public function handle_add_product(): void {
-        $this->must_manage(); check_admin_referer('pp_add_product');
-        $id = wp_insert_post(['post_type' => 'product', 'post_status' => 'draft', 'post_title' => 'New Print Product']);
-        if ($id) {
-            update_post_meta($id, '_pp_is_print_product', '1');
-            update_post_meta($id, '_pp_published', '0');
-            update_post_meta($id, '_pp_last_saved', current_time('mysql'));
+    public function handle_create_product(): void {
+        $this->must_manage(); check_admin_referer('pp_create_product');
+        $id = wp_insert_post(['post_type' => 'product', 'post_status' => 'draft', 'post_title' => 'New Print Product'], true);
+        if (is_wp_error($id)) {
+            wp_die(esc_html__('Product creation failed: ', 'print-platform') . esc_html($id->get_error_message()));
         }
-        wp_safe_redirect(admin_url('admin.php?page=print-platform-edit-product&product_id=' . absint((int) $id))); exit;
+        if ((int) $id <= 0) {
+            wp_die(esc_html__('Product creation failed: unknown error.', 'print-platform'));
+        }
+        update_post_meta((int) $id, '_pp_is_print_product', '1');
+        update_post_meta((int) $id, '_pp_published', '0');
+        update_post_meta((int) $id, '_pp_last_saved', current_time('mysql'));
+        $this->redirect_with_message(admin_url('admin.php?page=print-platform-edit-product&product_id=' . absint((int) $id)), 'Product created successfully.');
     }
     public function handle_toggle_published(): void {
         $this->must_manage(); $id = absint($_POST['product_id'] ?? 0); check_admin_referer('pp_toggle_published_' . $id);
@@ -689,7 +825,10 @@ final class Print_Platform_Plugin {
 
     public function handle_save_product(): void {
         $this->must_manage(); $id = absint($_POST['product_id'] ?? 0); check_admin_referer('pp_save_product_' . $id);
-        wp_update_post(['ID' => $id, 'post_title' => sanitize_text_field((string) ($_POST['post_title'] ?? '')), 'post_content' => wp_kses_post((string) ($_POST['post_content'] ?? '')), 'post_status' => ! empty($_POST['pp_published']) ? 'publish' : 'draft']);
+        $updated = wp_update_post(['ID' => $id, 'post_title' => sanitize_text_field((string) ($_POST['post_title'] ?? '')), 'post_content' => wp_kses_post((string) ($_POST['post_content'] ?? '')), 'post_status' => ! empty($_POST['pp_published']) ? 'publish' : 'draft'], true);
+        if (is_wp_error($updated)) {
+            $this->redirect_with_message(admin_url('admin.php?page=print-platform-edit-product&product_id=' . $id . '&tab=product-information'), 'Save failed: ' . $updated->get_error_message(), true);
+        }
         $metaMap = [
             '_pp_cms_pagelink' => sanitize_text_field((string) ($_POST['pp_cms_pagelink'] ?? '')),
             '_pp_product_type' => sanitize_text_field((string) ($_POST['pp_product_type'] ?? 'standard_template')),
@@ -707,7 +846,7 @@ final class Print_Platform_Plugin {
         ];
         foreach ($metaMap as $k => $v) update_post_meta($id, $k, $v);
         $catId = absint($_POST['pp_category'] ?? 0); if ($catId > 0) wp_set_object_terms($id, [$catId], 'product_cat');
-        wp_safe_redirect(admin_url('admin.php?page=print-platform-edit-product&product_id=' . $id . '&tab=product-information&saved=1')); exit;
+        $this->redirect_with_message(admin_url('admin.php?page=print-platform-edit-product&product_id=' . $id . '&tab=product-information'), 'Saved successfully');
     }
 
     public function handle_export_csv(): void {
@@ -748,6 +887,13 @@ final class Print_Platform_Plugin {
         $quantity = max(1, (int) $request->get_param('quantity'));
         $sizeId = absint($request->get_param('size_id'));
         $printModeKey = strtoupper(sanitize_text_field((string) $request->get_param('print_mode_key')));
+
+        if (! $this->pricing_tables_ready()) {
+            return new WP_REST_Response(['error' => 'Pricing tables are missing.'], 500);
+        }
+        if ($productId <= 0 || $sizeId <= 0 || $printModeKey === '') {
+            return new WP_REST_Response(['error' => 'Missing required quote fields.'], 400);
+        }
 
         $setId = (int) get_post_meta($productId, '_pp_base_price_set_id', true);
         $set = $this->get_base_price_set($setId);
