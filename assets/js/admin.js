@@ -79,6 +79,20 @@
 			'</div><p><button type="button" class="button-link-delete tpcw-remove-row">Remove mapping</button></p></div>';
 	}
 
+	function conditionalRuleTemplate(index) {
+		var base = 'tpcw_config[conditional_rules][' + index + ']';
+		return '<div class="tpcw-repeater-row tpcw-conditional-rule-row" data-index="' + index + '"><div class="tpcw-grid">' +
+			'<p><label>Rule target type</label><select name="' + base + '[target_type]"><option value="attribute">Attribute</option><option value="option">Option</option></select></p>' +
+			'<p><label>Target attribute key</label><input type="text" class="tpcw-attribute-key-list" list="tpcw-attribute-keys" name="' + base + '[target_attribute_key]" value="" /></p>' +
+			'<p><label>Target option value key (optional)</label><input type="text" name="' + base + '[target_option_value_key]" value="" /></p>' +
+			'<p><label>Condition attribute key</label><input type="text" class="tpcw-attribute-key-list" list="tpcw-attribute-keys" name="' + base + '[condition_attribute_key]" value="" /></p>' +
+			'<p><label>Condition operator</label><select name="' + base + '[operator]"><option value="equals">Equals</option><option value="not_equals">Not equals</option><option value="in_list">In list</option></select></p>' +
+			'<p><label>Condition value(s)</label><input type="text" name="' + base + '[condition_values]" value="" placeholder="matt,gloss" /></p>' +
+			'<p><label>Action</label><select name="' + base + '[action]"><option value="show">Show</option><option value="hide">Hide</option></select></p>' +
+			'<p><label>Rule priority / sort order</label><input type="number" min="0" name="' + base + '[sort_order]" value="0" /></p>' +
+			'</div><p><button type="button" class="button-link-delete tpcw-remove-row">Remove rule</button></p></div>';
+	}
+
 	function bindDefaultValueMirror($scope) {
 		$scope.find('.tpcw-option-row input[name*="[value_key]"]').on('input', function () {
 			var $row = $(this).closest('.tpcw-option-row');
@@ -272,6 +286,12 @@
 		$('#tpcw-add-preview-mapping').on('click', function () {
 			var index = nextIndex('#tpcw-preview-mappings .tpcw-repeater-row');
 			$previewMappings.append($(previewMappingTemplate(index)));
+		});
+
+		var $conditionalRules = $('#tpcw-conditional-rules');
+		$('#tpcw-add-conditional-rule').on('click', function () {
+			var index = nextIndex('#tpcw-conditional-rules .tpcw-repeater-row');
+			$conditionalRules.append($(conditionalRuleTemplate(index)));
 		});
 
 		$(document).on('click', '.tpcw-remove-row', function () {

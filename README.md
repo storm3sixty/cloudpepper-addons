@@ -12,9 +12,10 @@ Production-ready scaffold for a WooCommerce extension that hosts a Tradeprint-st
   - Product-level controls (enabled, product key, commission override, order mode override, pricing display mode).
   - Structured repeatable attribute builder.
   - Nested option builder with media selector support.
-  - Pricing matrix builder with spreadsheet-style grid editor (settings, services, quantities, inline cells).
-  - Extra services builder (preflight + design).
-  - Preview image mapping builder for attribute option-based product previews.
+	  - Pricing matrix builder with spreadsheet-style grid editor (settings, services, quantities, inline cells).
+	  - Extra services builder (preflight + design).
+	  - Preview image mapping builder for attribute option-based product previews.
+	  - Conditional logic builder for attribute/option visibility rules.
 - Frontend renderer for enabled products that reads saved product meta only.
 - Sticky summary with client-side live updates for options/services/matrix/custom quantity via REST pricing requests.
 - REST namespace with config payload plus meta-driven price resolver endpoint (`/price`) and placeholder preflight endpoint.

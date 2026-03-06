@@ -83,8 +83,9 @@ class TPCW_Product_Data {
 		$config         = is_array( $config ) ? $config : array();
 		$attributes     = isset( $config['attributes'] ) && is_array( $config['attributes'] ) ? $config['attributes'] : array();
 		$extra_services = isset( $config['extra_services'] ) && is_array( $config['extra_services'] ) ? $config['extra_services'] : array();
-		$matrix         = isset( $config['matrix'] ) && is_array( $config['matrix'] ) ? $config['matrix'] : array();
-		$preview_mappings = isset( $config['preview_mappings'] ) && is_array( $config['preview_mappings'] ) ? $config['preview_mappings'] : array();
+			$matrix            = isset( $config['matrix'] ) && is_array( $config['matrix'] ) ? $config['matrix'] : array();
+			$preview_mappings  = isset( $config['preview_mappings'] ) && is_array( $config['preview_mappings'] ) ? $config['preview_mappings'] : array();
+			$conditional_rules = isset( $config['conditional_rules'] ) && is_array( $config['conditional_rules'] ) ? $config['conditional_rules'] : array();
 		?>
 		<div id="tpcw_tradeprint_product_data" class="panel woocommerce_options_panel hidden">
 			<?php wp_nonce_field( 'tpcw_save_product_data', 'tpcw_product_nonce' ); ?>
@@ -170,6 +171,24 @@ class TPCW_Product_Data {
 					<?php endforeach; ?>
 				</div>
 				<p><button type="button" class="button" id="tpcw-add-preview-mapping"><?php echo esc_html__( 'Add preview mapping', 'tradeprint-configurator' ); ?></button></p>
+			</div>
+
+			<div class="options_group tpcw-conditional-rules-config">
+				<p><strong><?php echo esc_html__( 'Conditional Logic', 'tradeprint-configurator' ); ?></strong></p>
+				<div id="tpcw-conditional-rules" class="tpcw-repeater">
+					<?php foreach ( $conditional_rules as $rule_index => $rule ) : ?>
+						<?php $this->render_conditional_rule_row( (int) $rule_index, $rule, $attributes ); ?>
+					<?php endforeach; ?>
+				</div>
+				<datalist id="tpcw-attribute-keys">
+					<?php foreach ( $attributes as $attribute ) : ?>
+						<?php $attribute_key = isset( $attribute['attribute_key'] ) ? sanitize_key( $attribute['attribute_key'] ) : ''; ?>
+						<?php if ( '' !== $attribute_key ) : ?>
+							<option value="<?php echo esc_attr( $attribute_key ); ?>"></option>
+						<?php endif; ?>
+					<?php endforeach; ?>
+				</datalist>
+				<p><button type="button" class="button" id="tpcw-add-conditional-rule"><?php echo esc_html__( 'Add rule', 'tradeprint-configurator' ); ?></button></p>
 			</div>
 
 			<div class="options_group tpcw-extra-services-config">
@@ -304,6 +323,70 @@ class TPCW_Product_Data {
 			<p><button type="button" class="button-link-delete tpcw-remove-row"><?php echo esc_html__( 'Remove mapping', 'tradeprint-configurator' ); ?></button></p>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Render conditional rule row.
+	 *
+	 * @param int   $rule_index Rule index.
+	 * @param array $rule Rule payload.
+	 * @param array $attributes Attributes config.
+	 *
+	 * @return void
+	 */
+	private function render_conditional_rule_row( $rule_index, $rule, $attributes ) {
+		$rule       = is_array( $rule ) ? $rule : array();
+		$attributes = is_array( $attributes ) ? $attributes : array();
+		?>
+		<div class="tpcw-repeater-row tpcw-conditional-rule-row" data-index="<?php echo esc_attr( (string) $rule_index ); ?>">
+			<div class="tpcw-grid">
+				<p>
+					<label><?php echo esc_html__( 'Rule target type', 'tradeprint-configurator' ); ?></label>
+					<select name="tpcw_config[conditional_rules][<?php echo esc_attr( (string) $rule_index ); ?>][target_type]">
+						<option value="attribute" <?php selected( isset( $rule['target_type'] ) ? $rule['target_type'] : 'attribute', 'attribute' ); ?>><?php echo esc_html__( 'Attribute', 'tradeprint-configurator' ); ?></option>
+						<option value="option" <?php selected( isset( $rule['target_type'] ) ? $rule['target_type'] : '', 'option' ); ?>><?php echo esc_html__( 'Option', 'tradeprint-configurator' ); ?></option>
+					</select>
+				</p>
+				<p>
+					<label><?php echo esc_html__( 'Target attribute key', 'tradeprint-configurator' ); ?></label>
+					<input type="text" class="tpcw-attribute-key-list" list="tpcw-attribute-keys" name="tpcw_config[conditional_rules][<?php echo esc_attr( (string) $rule_index ); ?>][target_attribute_key]" value="<?php echo esc_attr( isset( $rule['target_attribute_key'] ) ? $rule['target_attribute_key'] : '' ); ?>" />
+				</p>
+				<p>
+					<label><?php echo esc_html__( 'Target option value key (optional)', 'tradeprint-configurator' ); ?></label>
+					<input type="text" name="tpcw_config[conditional_rules][<?php echo esc_attr( (string) $rule_index ); ?>][target_option_value_key]" value="<?php echo esc_attr( isset( $rule['target_option_value_key'] ) ? $rule['target_option_value_key'] : '' ); ?>" />
+				</p>
+				<p>
+					<label><?php echo esc_html__( 'Condition attribute key', 'tradeprint-configurator' ); ?></label>
+					<input type="text" class="tpcw-attribute-key-list" list="tpcw-attribute-keys" name="tpcw_config[conditional_rules][<?php echo esc_attr( (string) $rule_index ); ?>][condition_attribute_key]" value="<?php echo esc_attr( isset( $rule['condition_attribute_key'] ) ? $rule['condition_attribute_key'] : '' ); ?>" />
+				</p>
+				<p>
+					<label><?php echo esc_html__( 'Condition operator', 'tradeprint-configurator' ); ?></label>
+					<select name="tpcw_config[conditional_rules][<?php echo esc_attr( (string) $rule_index ); ?>][operator]">
+						<option value="equals" <?php selected( isset( $rule['operator'] ) ? $rule['operator'] : 'equals', 'equals' ); ?>><?php echo esc_html__( 'Equals', 'tradeprint-configurator' ); ?></option>
+						<option value="not_equals" <?php selected( isset( $rule['operator'] ) ? $rule['operator'] : '', 'not_equals' ); ?>><?php echo esc_html__( 'Not equals', 'tradeprint-configurator' ); ?></option>
+						<option value="in_list" <?php selected( isset( $rule['operator'] ) ? $rule['operator'] : '', 'in_list' ); ?>><?php echo esc_html__( 'In list', 'tradeprint-configurator' ); ?></option>
+					</select>
+				</p>
+				<p>
+					<label><?php echo esc_html__( 'Condition value(s)', 'tradeprint-configurator' ); ?></label>
+					<input type="text" name="tpcw_config[conditional_rules][<?php echo esc_attr( (string) $rule_index ); ?>][condition_values]" value="<?php echo esc_attr( isset( $rule['condition_values'] ) ? implode( ',', (array) $rule['condition_values'] ) : '' ); ?>" placeholder="<?php echo esc_attr__( 'matt,gloss', 'tradeprint-configurator' ); ?>" />
+				</p>
+				<p>
+					<label><?php echo esc_html__( 'Action', 'tradeprint-configurator' ); ?></label>
+					<select name="tpcw_config[conditional_rules][<?php echo esc_attr( (string) $rule_index ); ?>][action]">
+						<option value="show" <?php selected( isset( $rule['action'] ) ? $rule['action'] : 'show', 'show' ); ?>><?php echo esc_html__( 'Show', 'tradeprint-configurator' ); ?></option>
+						<option value="hide" <?php selected( isset( $rule['action'] ) ? $rule['action'] : '', 'hide' ); ?>><?php echo esc_html__( 'Hide', 'tradeprint-configurator' ); ?></option>
+					</select>
+				</p>
+				<p>
+					<label><?php echo esc_html__( 'Rule priority / sort order', 'tradeprint-configurator' ); ?></label>
+					<input type="number" min="0" name="tpcw_config[conditional_rules][<?php echo esc_attr( (string) $rule_index ); ?>][sort_order]" value="<?php echo esc_attr( isset( $rule['sort_order'] ) ? $rule['sort_order'] : 0 ); ?>" />
+				</p>
+			</div>
+			<p><button type="button" class="button-link-delete tpcw-remove-row"><?php echo esc_html__( 'Remove rule', 'tradeprint-configurator' ); ?></button></p>
+		</div>
+		<?php
+
 	}
 
 
@@ -495,12 +578,13 @@ class TPCW_Product_Data {
 		update_post_meta( $post_id, '_tpcw_pricing_display_mode', $pricing_mode );
 
 		$config_input = isset( $_POST['tpcw_config'] ) && is_array( $_POST['tpcw_config'] ) ? wp_unslash( $_POST['tpcw_config'] ) : array();
-		$config       = array(
-			'attributes'     => $this->sanitize_attributes( isset( $config_input['attributes'] ) ? $config_input['attributes'] : array() ),
-			'matrix'           => $this->sanitize_matrix( isset( $config_input['matrix'] ) ? $config_input['matrix'] : array() ),
-			'preview_mappings' => $this->sanitize_preview_mappings( isset( $config_input['preview_mappings'] ) ? $config_input['preview_mappings'] : array() ),
-			'extra_services'   => $this->sanitize_extra_services( isset( $config_input['extra_services'] ) ? $config_input['extra_services'] : array() ),
-		);
+			$config       = array(
+				'attributes'     => $this->sanitize_attributes( isset( $config_input['attributes'] ) ? $config_input['attributes'] : array() ),
+				'matrix'           => $this->sanitize_matrix( isset( $config_input['matrix'] ) ? $config_input['matrix'] : array() ),
+				'preview_mappings' => $this->sanitize_preview_mappings( isset( $config_input['preview_mappings'] ) ? $config_input['preview_mappings'] : array() ),
+				'conditional_rules'=> $this->sanitize_conditional_rules( isset( $config_input['conditional_rules'] ) ? $config_input['conditional_rules'] : array() ),
+				'extra_services'   => $this->sanitize_extra_services( isset( $config_input['extra_services'] ) ? $config_input['extra_services'] : array() ),
+			);
 
 		update_post_meta( $post_id, TPCW_Loader::META_CONFIG, $config );
 	}
@@ -762,6 +846,77 @@ class TPCW_Product_Data {
 				'image_id'         => $image_id,
 				'label'            => sanitize_text_field( isset( $mapping['label'] ) ? $mapping['label'] : '' ),
 				'sort_order'       => absint( isset( $mapping['sort_order'] ) ? $mapping['sort_order'] : 0 ),
+			);
+		}
+
+		usort(
+			$sanitized,
+			function ( $left, $right ) {
+				return (int) $left['sort_order'] - (int) $right['sort_order'];
+			}
+		);
+
+		return $sanitized;
+	}
+
+	/**
+	 * Sanitize conditional rules.
+	 *
+	 * @param array $rules Rule payload.
+	 *
+	 * @return array
+	 */
+	private function sanitize_conditional_rules( $rules ) {
+		$rules     = is_array( $rules ) ? $rules : array();
+		$sanitized = array();
+
+		foreach ( $rules as $rule ) {
+			if ( ! is_array( $rule ) ) {
+				continue;
+			}
+
+			$target_type = isset( $rule['target_type'] ) ? sanitize_key( $rule['target_type'] ) : 'attribute';
+			$target_type = in_array( $target_type, array( 'attribute', 'option' ), true ) ? $target_type : 'attribute';
+			$operator    = isset( $rule['operator'] ) ? sanitize_key( $rule['operator'] ) : 'equals';
+			$operator    = in_array( $operator, array( 'equals', 'not_equals', 'in_list' ), true ) ? $operator : 'equals';
+			$action      = isset( $rule['action'] ) ? sanitize_key( $rule['action'] ) : 'show';
+			$action      = in_array( $action, array( 'show', 'hide' ), true ) ? $action : 'show';
+
+			$target_attribute_key = sanitize_key( isset( $rule['target_attribute_key'] ) ? $rule['target_attribute_key'] : '' );
+			$condition_key        = sanitize_key( isset( $rule['condition_attribute_key'] ) ? $rule['condition_attribute_key'] : '' );
+			$target_option_key    = sanitize_text_field( isset( $rule['target_option_value_key'] ) ? $rule['target_option_value_key'] : '' );
+			$values_raw           = isset( $rule['condition_values'] ) ? $rule['condition_values'] : array();
+
+			if ( ! is_array( $values_raw ) ) {
+				$values_raw = explode( ',', (string) $values_raw );
+			}
+
+			$condition_values = array();
+			foreach ( $values_raw as $value ) {
+				$value = sanitize_text_field( trim( (string) $value ) );
+				if ( '' !== $value ) {
+					$condition_values[] = $value;
+				}
+			}
+			$condition_values = array_values( array_unique( $condition_values ) );
+
+			if ( '' === $target_attribute_key || '' === $condition_key || empty( $condition_values ) ) {
+				continue;
+			}
+
+			if ( 'option' === $target_type && '' === $target_option_key ) {
+				continue;
+			}
+
+			$sanitized[] = array(
+				'target_type'             => $target_type,
+				'target_attribute_key'    => $target_attribute_key,
+				'target_option_value_key' => $target_option_key,
+				'condition_attribute_key' => $condition_key,
+				'operator'                => $operator,
+				'condition_values'        => $condition_values,
+				'action'                  => $action,
+				'sort_order'              => isset( $rule['sort_order'] ) ? absint( $rule['sort_order'] ) : 0,
 			);
 		}
 

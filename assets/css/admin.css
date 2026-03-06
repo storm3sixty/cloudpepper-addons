@@ -112,3 +112,7 @@
 #tpcw_tradeprint_product_data .tpcw-preview-mapping-row {
 	border-left: 3px solid #2271b1;
 }
+
+#tpcw_tradeprint_product_data .tpcw-conditional-rule-row {
+	border-left: 3px solid #8c8f94;
+}

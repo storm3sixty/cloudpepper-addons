@@ -49,6 +49,156 @@
 		return JSON.stringify(obj);
 	}
 
+	function parseConditionalRules($configurator) {
+		var raw = String($configurator.attr('data-conditional-rules') || '[]');
+		try {
+			var parsed = JSON.parse(raw);
+			return Array.isArray(parsed) ? parsed : [];
+		} catch (error) {
+			return [];
+		}
+	}
+
+	function matchesCondition(rule, selectedAttributes) {
+		var key = String(rule.condition_attribute_key || '');
+		var values = Array.isArray(rule.condition_values) ? rule.condition_values.map(String) : [];
+		var selected = String((selectedAttributes && selectedAttributes[key]) || '');
+		if (!key || !values.length) {
+			return false;
+		}
+
+		if (rule.operator === 'not_equals') {
+			return values.indexOf(selected) === -1;
+		}
+		if (rule.operator === 'in_list') {
+			return values.indexOf(selected) !== -1;
+		}
+		return selected === values[0];
+	}
+
+	function evaluateConditionalVisibility($configurator, selectedAttributes) {
+		var rules = parseConditionalRules($configurator);
+		var visibility = { attributes: {}, options: {} };
+
+		$configurator.find('.tpcw-attribute-render').each(function () {
+			var key = String($(this).data('attribute-key') || '');
+			if (key) {
+				visibility.attributes[key] = true;
+			}
+		});
+
+		$configurator.find('.tpcw-option-card').each(function () {
+			var $card = $(this);
+			var a = String($card.data('attribute-key') || '');
+			var o = String($card.data('value-key') || '');
+			if (a && o) {
+				visibility.options[a + '|' + o] = true;
+			}
+		});
+		$configurator.find('.tpcw-select option[data-option-key]').each(function () {
+			var $option = $(this);
+			var a = String($option.closest('.tpcw-attribute-render').data('attribute-key') || '');
+			var o = String($option.data('option-key') || '');
+			if (a && o && typeof visibility.options[a + '|' + o] === 'undefined') {
+				visibility.options[a + '|' + o] = true;
+			}
+		});
+
+		rules.forEach(function (rule) {
+			if (!rule || !matchesCondition(rule, selectedAttributes)) {
+				return;
+			}
+
+			var visible = String(rule.action || 'show') === 'show';
+			var targetType = String(rule.target_type || 'attribute');
+			var targetAttribute = String(rule.target_attribute_key || '');
+			if (!targetAttribute) {
+				return;
+			}
+
+			if (targetType === 'option') {
+				var targetOption = String(rule.target_option_value_key || '');
+				if (!targetOption) {
+					return;
+				}
+				visibility.options[targetAttribute + '|' + targetOption] = visible;
+			} else {
+				visibility.attributes[targetAttribute] = visible;
+			}
+		});
+
+		return visibility;
+	}
+
+	function applyConditionalVisibility($configurator, visibility) {
+		if (!visibility) {
+			return;
+		}
+
+		$configurator.find('.tpcw-attribute-render').each(function () {
+			var $attribute = $(this);
+			var key = String($attribute.data('attribute-key') || '');
+			var isVisible = visibility.attributes[key] !== false;
+			$attribute.toggleClass('tpcw-is-hidden-by-rule', !isVisible);
+			$attribute.stop(true, true)[isVisible ? 'fadeIn' : 'fadeOut'](140);
+
+			var isRequired = String($attribute.data('required') || 'no') === 'yes';
+			var $select = $attribute.find('.tpcw-select');
+			if ($select.length) {
+				$select.prop('required', isVisible && isRequired);
+			}
+		});
+
+		$configurator.find('.tpcw-option-card').each(function () {
+			var $option = $(this);
+			var key = String($option.data('attribute-key') || '') + '|' + String($option.data('value-key') || '');
+			var isVisible = visibility.options[key] !== false;
+			$option.toggleClass('tpcw-is-hidden-by-rule', !isVisible);
+			$option.stop(true, true)[isVisible ? 'fadeIn' : 'fadeOut'](120);
+		});
+
+		$configurator.find('.tpcw-select option[data-option-key]').each(function () {
+			var $option = $(this);
+			var attribute = String($option.closest('.tpcw-attribute-render').data('attribute-key') || '');
+			var key = attribute + '|' + String($option.data('option-key') || '');
+			var isVisible = visibility.options[key] !== false;
+			$option.prop('disabled', !isVisible);
+			$option.prop('hidden', !isVisible);
+		});
+	}
+
+	function clearInvalidHiddenSelections($configurator, visibility) {
+		$configurator.find('.tpcw-attribute-render').each(function () {
+			var $attribute = $(this);
+			var attributeKey = String($attribute.data('attribute-key') || '');
+			if (!attributeKey) {
+				return;
+			}
+
+			if (visibility.attributes[attributeKey] === false) {
+				$attribute.find('.tpcw-option-card.is-selected').removeClass('is-selected');
+				$attribute.find('.tpcw-select').val('');
+				return;
+			}
+
+			var $selectedCard = $attribute.find('.tpcw-option-card.is-selected');
+			if ($selectedCard.length) {
+				var cardKey = attributeKey + '|' + String($selectedCard.data('value-key') || '');
+				if (visibility.options[cardKey] === false) {
+					$selectedCard.removeClass('is-selected');
+				}
+			}
+
+			var $select = $attribute.find('.tpcw-select');
+			if ($select.length) {
+				var current = String($select.val() || '');
+				if (current && visibility.options[attributeKey + '|' + current] === false) {
+					$select.val('');
+				}
+			}
+		});
+	}
+
 
 	function preloadPreviewImages($configurator) {
 		$configurator.find('.tpcw-preview-thumb').each(function () {
@@ -247,10 +397,16 @@
 			customQuantity: 0
 		};
 
-		function buildPayload() {
-			return {
-				product_id: parseInt($configurator.data('product-id'), 10) || 0,
-				selected_attributes: getAttributes($configurator),
+			function buildPayload() {
+				var selectedAttributes = getAttributes($configurator);
+				var visibility = evaluateConditionalVisibility($configurator, selectedAttributes);
+				clearInvalidHiddenSelections($configurator, visibility);
+				applyConditionalVisibility($configurator, visibility);
+				selectedAttributes = getAttributes($configurator);
+
+				return {
+					product_id: parseInt($configurator.data('product-id'), 10) || 0,
+					selected_attributes: selectedAttributes,
 				selected_service: state.selectedService,
 				selected_quantity: state.selectedQuantity,
 				custom_quantity: state.customQuantity,
@@ -258,17 +414,17 @@
 			};
 		}
 
-		$configurator.on('click', '.tpcw-option-card', function () {
+			$configurator.on('click', '.tpcw-option-card', function () {
 			var $clicked = $(this);
 			var key = $clicked.data('attribute-key');
 			$configurator.find('.tpcw-option-card[data-attribute-key="' + key + '"]').removeClass('is-selected');
 			$clicked.addClass('is-selected');
-			setCartPayload($configurator, state);
-		});
+				setCartPayload($configurator, state, buildPayload());
+			});
 
-		$configurator.on('change', '.tpcw-select, .tpcw-service-toggle', function () {
-			setCartPayload($configurator, state);
-		});
+			$configurator.on('change', '.tpcw-select, .tpcw-service-toggle', function () {
+				setCartPayload($configurator, state, buildPayload());
+			});
 
 		$configurator.on('click', '.tpcw-matrix-cell:not([disabled])', function () {
 			var $clicked = $(this);
@@ -293,8 +449,8 @@
 			requestPricing($configurator, buildPayload(), state, null);
 		});
 
-		preloadPreviewImages($configurator);
-		setCartPayload($configurator, state);
-		$configurator.find('.tpcw-summary-content').html('<p>Select a matrix option to load pricing.</p>');
-	});
+			preloadPreviewImages($configurator);
+			setCartPayload($configurator, state, buildPayload());
+			$configurator.find('.tpcw-summary-content').html('<p>Select a matrix option to load pricing.</p>');
+		});
 })(jQuery);

@@ -109,12 +109,14 @@ class TPCW_Frontend {
 		$config         = is_array( $config ) ? $config : array();
 		$attributes     = isset( $config['attributes'] ) && is_array( $config['attributes'] ) ? $config['attributes'] : array();
 		$extra_services = isset( $config['extra_services'] ) && is_array( $config['extra_services'] ) ? $config['extra_services'] : array();
-		$matrix          = isset( $config['matrix'] ) && is_array( $config['matrix'] ) ? $config['matrix'] : array();
-		$preview_mappings = isset( $config['preview_mappings'] ) && is_array( $config['preview_mappings'] ) ? $config['preview_mappings'] : array();
-		$pricing_mode    = get_post_meta( $product_id, '_tpcw_pricing_display_mode', true );
-		$pricing_mode   = in_array( $pricing_mode, array( 'standard', 'matrix' ), true ) ? $pricing_mode : 'standard';
-		?>
-		<div id="tpcw-configurator" class="tpcw-configurator" data-product-id="<?php echo esc_attr( (string) $product_id ); ?>" data-pricing-mode="<?php echo esc_attr( $pricing_mode ); ?>">
+			$matrix          = isset( $config['matrix'] ) && is_array( $config['matrix'] ) ? $config['matrix'] : array();
+			$preview_mappings = isset( $config['preview_mappings'] ) && is_array( $config['preview_mappings'] ) ? $config['preview_mappings'] : array();
+			$conditional_rules = isset( $config['conditional_rules'] ) && is_array( $config['conditional_rules'] ) ? $config['conditional_rules'] : array();
+			$pricing_mode    = get_post_meta( $product_id, '_tpcw_pricing_display_mode', true );
+			$pricing_mode   = in_array( $pricing_mode, array( 'standard', 'matrix' ), true ) ? $pricing_mode : 'standard';
+			$conditional_rules_json = wp_json_encode( $conditional_rules );
+			?>
+			<div id="tpcw-configurator" class="tpcw-configurator" data-product-id="<?php echo esc_attr( (string) $product_id ); ?>" data-pricing-mode="<?php echo esc_attr( $pricing_mode ); ?>" data-conditional-rules="<?php echo esc_attr( $conditional_rules_json ? $conditional_rules_json : '[]' ); ?>">
 			<h3><?php echo esc_html__( 'Tradeprint Configurator', 'tradeprint-configurator' ); ?></h3>
 			<?php $this->render_preview_container( $product_id, $preview_mappings ); ?>
 			<div class="tpcw-section tpcw-options">
@@ -363,7 +365,7 @@ class TPCW_Frontend {
 			$display_type    = isset( $attribute['display_type'] ) ? $attribute['display_type'] : 'dropdown';
 			$required        = 'yes' === ( isset( $attribute['required'] ) ? $attribute['required'] : 'no' );
 
-			echo '<div class="tpcw-attribute-render" data-attribute-key="' . esc_attr( $attribute_key ) . '">';
+			echo '<div class="tpcw-attribute-render" data-attribute-key="' . esc_attr( $attribute_key ) . '" data-required="' . esc_attr( $required ? 'yes' : 'no' ) . '">';
 			echo '<label class="tpcw-attribute-title">' . esc_html( $attribute_label );
 			if ( $required ) {
 				echo ' <span class="tpcw-required">*</span>';
@@ -398,7 +400,7 @@ class TPCW_Frontend {
 		echo '<option value="">' . esc_html__( 'Select an option', 'tradeprint-configurator' ) . '</option>';
 		foreach ( $options as $option ) {
 			$selected = $default_key === $option['value_key'] ? ' selected="selected"' : '';
-			echo '<option value="' . esc_attr( $option['value_key'] ) . '" data-label="' . esc_attr( $option['label'] ) . '"' . $selected . '>' . esc_html( $option['label'] ) . '</option>';
+				echo '<option value="' . esc_attr( $option['value_key'] ) . '" data-label="' . esc_attr( $option['label'] ) . '" data-option-key="' . esc_attr( $option['value_key'] ) . '"' . $selected . '>' . esc_html( $option['label'] ) . '</option>';
 		}
 		echo '</select>';
 	}

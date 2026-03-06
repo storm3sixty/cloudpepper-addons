@@ -336,6 +336,11 @@
 	box-shadow: 0 0 0 1px #2271b1;
 }
 
+.tpcw-attribute-render.tpcw-is-hidden-by-rule,
+.tpcw-option-card.tpcw-is-hidden-by-rule {
+	display: none;
+}
+
 @media (max-width: 900px) {
 	.tpcw-preview {
 		grid-column: 1;

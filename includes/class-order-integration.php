@@ -515,6 +515,7 @@ class TPCW_Order_Integration {
 	 */
 	private function validate_required_attributes( $config, $selected ) {
 		$attributes = isset( $config['attributes'] ) && is_array( $config['attributes'] ) ? $config['attributes'] : array();
+		$rules      = isset( $config['conditional_rules'] ) && is_array( $config['conditional_rules'] ) ? $config['conditional_rules'] : array();
 		$selected   = is_array( $selected ) ? $selected : array();
 
 		foreach ( $attributes as $attribute ) {
@@ -529,12 +530,89 @@ class TPCW_Order_Integration {
 			}
 
 			$key = sanitize_key( isset( $attribute['attribute_key'] ) ? $attribute['attribute_key'] : '' );
+			if ( $this->is_attribute_hidden_by_rules( $key, $rules, $selected ) ) {
+				continue;
+			}
+
 			if ( ! $key || empty( $selected[ $key ] ) ) {
 				return false;
 			}
 		}
 
 		return true;
+	}
+
+	/**
+	 * Determine whether a required attribute is hidden by conditional rules.
+	 *
+	 * @param string $attribute_key Attribute key.
+	 * @param array  $rules Conditional rules.
+	 * @param array  $selected Selected attributes.
+	 *
+	 * @return bool
+	 */
+	private function is_attribute_hidden_by_rules( $attribute_key, $rules, $selected ) {
+		$attribute_key = sanitize_key( $attribute_key );
+		if ( '' === $attribute_key || empty( $rules ) ) {
+			return false;
+		}
+
+		$visible = true;
+		foreach ( $rules as $rule ) {
+			if ( ! is_array( $rule ) ) {
+				continue;
+			}
+
+			$target_type = isset( $rule['target_type'] ) ? sanitize_key( $rule['target_type'] ) : 'attribute';
+			$target_key  = isset( $rule['target_attribute_key'] ) ? sanitize_key( $rule['target_attribute_key'] ) : '';
+			if ( 'attribute' !== $target_type || $target_key !== $attribute_key ) {
+				continue;
+			}
+
+			if ( ! $this->rule_matches_selected_attributes( $rule, $selected ) ) {
+				continue;
+			}
+
+			$action  = isset( $rule['action'] ) ? sanitize_key( $rule['action'] ) : 'show';
+			$visible = 'hide' !== $action;
+		}
+
+		return ! $visible;
+	}
+
+	/**
+	 * Check if a conditional rule matches the selected attributes.
+	 *
+	 * @param array $rule Rule payload.
+	 * @param array $selected Selected attributes.
+	 *
+	 * @return bool
+	 */
+	private function rule_matches_selected_attributes( $rule, $selected ) {
+		$selected      = is_array( $selected ) ? $selected : array();
+		$condition_key = isset( $rule['condition_attribute_key'] ) ? sanitize_key( $rule['condition_attribute_key'] ) : '';
+		if ( '' === $condition_key ) {
+			return false;
+		}
+
+		$selected_value = isset( $selected[ $condition_key ] ) ? sanitize_text_field( (string) $selected[ $condition_key ] ) : '';
+		$values         = isset( $rule['condition_values'] ) && is_array( $rule['condition_values'] ) ? $rule['condition_values'] : array();
+		$values         = array_filter( array_map( 'sanitize_text_field', $values ) );
+		$operator       = isset( $rule['operator'] ) ? sanitize_key( $rule['operator'] ) : 'equals';
+
+		if ( empty( $values ) ) {
+			return false;
+		}
+
+		if ( 'not_equals' === $operator ) {
+			return ! in_array( $selected_value, $values, true );
+		}
+
+		if ( 'in_list' === $operator ) {
+			return in_array( $selected_value, $values, true );
+		}
+
+		return isset( $values[0] ) && $selected_value === $values[0];
 	}
 
 	/**
