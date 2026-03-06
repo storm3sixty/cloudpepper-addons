@@ -284,3 +284,60 @@
 .tpcw-inline-message.is-error {
 	color: #b32d2e;
 }
+
+
+.tpcw-preview {
+	grid-column: 1;
+}
+
+.tpcw-preview-main {
+	margin-top: 8px;
+	border: 1px solid #e2e4e7;
+	border-radius: 6px;
+	overflow: hidden;
+	background: #fff;
+}
+
+#tpcw-preview-main-image {
+	display: block;
+	width: 100%;
+	height: auto;
+	transition: opacity 0.2s ease;
+}
+
+#tpcw-preview-main-image.is-fading {
+	opacity: 0.35;
+}
+
+.tpcw-preview-thumbnails {
+	display: flex;
+	gap: 8px;
+	overflow-x: auto;
+	padding-top: 8px;
+}
+
+.tpcw-preview-thumb {
+	border: 1px solid #ccd0d4;
+	border-radius: 4px;
+	padding: 2px;
+	background: #fff;
+	flex: 0 0 auto;
+}
+
+.tpcw-preview-thumb img {
+	display: block;
+	width: 56px;
+	height: 56px;
+	object-fit: cover;
+}
+
+.tpcw-preview-thumb.is-active {
+	border-color: #2271b1;
+	box-shadow: 0 0 0 1px #2271b1;
+}
+
+@media (max-width: 900px) {
+	.tpcw-preview {
+		grid-column: 1;
+	}
+}

@@ -49,6 +49,58 @@
 		return JSON.stringify(obj);
 	}
 
+
+	function preloadPreviewImages($configurator) {
+		$configurator.find('.tpcw-preview-thumb').each(function () {
+			var src = String($(this).data('image-url') || '');
+			if (src) {
+				var img = new Image();
+				img.src = src;
+			}
+		});
+	}
+
+	function updatePreviewImage($configurator, selectedAttributes) {
+		var $main = $('#tpcw-preview-main-image');
+		if (!$main.length) {
+			return;
+		}
+
+		var $thumbs = $configurator.find('.tpcw-preview-thumb');
+		var best = null;
+		$thumbs.each(function () {
+			var $thumb = $(this);
+			var aKey = String($thumb.data('attribute-key') || '');
+			var oKey = String($thumb.data('option-key') || '');
+			var sort = parseInt($thumb.data('sort-order') || 0, 10);
+			if (aKey && oKey && selectedAttributes[aKey] && String(selectedAttributes[aKey]) === oKey) {
+				if (!best || sort < best.sort) {
+					best = { el: $thumb, src: String($thumb.data('image-url') || ''), sort: sort };
+				}
+			}
+		});
+
+		var targetSrc = best && best.src ? best.src : String($configurator.find('.tpcw-preview').data('default-image') || '');
+		if (!targetSrc || $main.attr('src') === targetSrc) {
+			$thumbs.removeClass('is-active');
+			if (best) {
+				best.el.addClass('is-active');
+			}
+			return;
+		}
+
+		$main.addClass('is-fading');
+		window.setTimeout(function () {
+			$main.attr('src', targetSrc);
+			$main.removeClass('is-fading');
+		}, 150);
+
+		$thumbs.removeClass('is-active');
+		if (best) {
+			best.el.addClass('is-active');
+		}
+	}
+
 	function showLoading($configurator, text) {
 		$configurator.addClass('tpcw-loading');
 		$configurator.find('.tpcw-summary-content').html('<p class="tpcw-loading-text">' + text + '</p>');
@@ -114,6 +166,7 @@
 		};
 
 		$('#tpcw-config-payload').val(JSON.stringify(payload));
+		updatePreviewImage($configurator, payload.selected_attributes || {});
 	}
 
 	function requestPricing($configurator, payload, state, pendingCell) {
@@ -240,6 +293,7 @@
 			requestPricing($configurator, buildPayload(), state, null);
 		});
 
+		preloadPreviewImages($configurator);
 		setCartPayload($configurator, state);
 		$configurator.find('.tpcw-summary-content').html('<p>Select a matrix option to load pricing.</p>');
 	});

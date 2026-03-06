@@ -109,12 +109,14 @@ class TPCW_Frontend {
 		$config         = is_array( $config ) ? $config : array();
 		$attributes     = isset( $config['attributes'] ) && is_array( $config['attributes'] ) ? $config['attributes'] : array();
 		$extra_services = isset( $config['extra_services'] ) && is_array( $config['extra_services'] ) ? $config['extra_services'] : array();
-		$matrix         = isset( $config['matrix'] ) && is_array( $config['matrix'] ) ? $config['matrix'] : array();
-		$pricing_mode   = get_post_meta( $product_id, '_tpcw_pricing_display_mode', true );
+		$matrix          = isset( $config['matrix'] ) && is_array( $config['matrix'] ) ? $config['matrix'] : array();
+		$preview_mappings = isset( $config['preview_mappings'] ) && is_array( $config['preview_mappings'] ) ? $config['preview_mappings'] : array();
+		$pricing_mode    = get_post_meta( $product_id, '_tpcw_pricing_display_mode', true );
 		$pricing_mode   = in_array( $pricing_mode, array( 'standard', 'matrix' ), true ) ? $pricing_mode : 'standard';
 		?>
 		<div id="tpcw-configurator" class="tpcw-configurator" data-product-id="<?php echo esc_attr( (string) $product_id ); ?>" data-pricing-mode="<?php echo esc_attr( $pricing_mode ); ?>">
 			<h3><?php echo esc_html__( 'Tradeprint Configurator', 'tradeprint-configurator' ); ?></h3>
+			<?php $this->render_preview_container( $product_id, $preview_mappings ); ?>
 			<div class="tpcw-section tpcw-options">
 				<strong><?php echo esc_html__( 'Options', 'tradeprint-configurator' ); ?></strong>
 				<?php $this->render_attributes( $attributes ); ?>
@@ -132,6 +134,66 @@ class TPCW_Frontend {
 			</div>
 		</div>
 		<?php
+	}
+
+
+	/**
+	 * Render preview container.
+	 *
+	 * @param int   $product_id Product ID.
+	 * @param array $preview_mappings Preview mappings.
+	 *
+	 * @return void
+	 */
+	private function render_preview_container( $product_id, $preview_mappings ) {
+		$preview_mappings = is_array( $preview_mappings ) ? $preview_mappings : array();
+		$images           = array();
+
+		foreach ( $preview_mappings as $mapping ) {
+			if ( ! is_array( $mapping ) || empty( $mapping['image_id'] ) ) {
+				continue;
+			}
+			$image_id = absint( $mapping['image_id'] );
+			$url      = wp_get_attachment_image_url( $image_id, 'large' );
+			if ( ! $url ) {
+				continue;
+			}
+			$images[] = array(
+				'attribute_key'    => isset( $mapping['attribute_key'] ) ? sanitize_key( $mapping['attribute_key'] ) : '',
+				'option_value_key' => isset( $mapping['option_value_key'] ) ? sanitize_text_field( $mapping['option_value_key'] ) : '',
+				'image_id'         => $image_id,
+				'image_url'        => $url,
+				'label'            => isset( $mapping['label'] ) ? sanitize_text_field( $mapping['label'] ) : '',
+				'sort_order'       => isset( $mapping['sort_order'] ) ? absint( $mapping['sort_order'] ) : 0,
+			);
+		}
+
+		usort(
+			$images,
+			function ( $left, $right ) {
+				return (int) $left['sort_order'] - (int) $right['sort_order'];
+			}
+		);
+
+		$default_image_id  = get_post_thumbnail_id( $product_id );
+		$default_image_url = $default_image_id ? wp_get_attachment_image_url( $default_image_id, 'large' ) : wc_placeholder_img_src();
+
+		echo '<div class="tpcw-section tpcw-preview" data-default-image="' . esc_url( $default_image_url ) . '">';
+		echo '<strong>' . esc_html__( 'Product Preview', 'tradeprint-configurator' ) . '</strong>';
+		echo '<div class="tpcw-preview-main">';
+		echo '<img id="tpcw-preview-main-image" src="' . esc_url( $default_image_url ) . '" alt="' . esc_attr__( 'Product preview', 'tradeprint-configurator' ) . '" />';
+		echo '</div>';
+
+		if ( ! empty( $images ) ) {
+			echo '<div class="tpcw-preview-thumbnails">';
+			foreach ( $images as $index => $image ) {
+				echo '<button type="button" class="tpcw-preview-thumb' . ( 0 === $index ? ' is-active' : '' ) . '" data-attribute-key="' . esc_attr( $image['attribute_key'] ) . '" data-option-key="' . esc_attr( $image['option_value_key'] ) . '" data-image-url="' . esc_url( $image['image_url'] ) . '" data-sort-order="' . esc_attr( (string) $image['sort_order'] ) . '">';
+				echo '<img src="' . esc_url( wp_get_attachment_image_url( $image['image_id'], 'thumbnail' ) ) . '" alt="' . esc_attr( $image['label'] ? $image['label'] : $image['option_value_key'] ) . '" />';
+				echo '</button>';
+			}
+			echo '</div>';
+		}
+		echo '</div>';
 	}
 
 	/**

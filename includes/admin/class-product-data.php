@@ -84,6 +84,7 @@ class TPCW_Product_Data {
 		$attributes     = isset( $config['attributes'] ) && is_array( $config['attributes'] ) ? $config['attributes'] : array();
 		$extra_services = isset( $config['extra_services'] ) && is_array( $config['extra_services'] ) ? $config['extra_services'] : array();
 		$matrix         = isset( $config['matrix'] ) && is_array( $config['matrix'] ) ? $config['matrix'] : array();
+		$preview_mappings = isset( $config['preview_mappings'] ) && is_array( $config['preview_mappings'] ) ? $config['preview_mappings'] : array();
 		?>
 		<div id="tpcw_tradeprint_product_data" class="panel woocommerce_options_panel hidden">
 			<?php wp_nonce_field( 'tpcw_save_product_data', 'tpcw_product_nonce' ); ?>
@@ -159,6 +160,16 @@ class TPCW_Product_Data {
 			<div class="options_group tpcw-matrix-config">
 				<p><strong><?php echo esc_html__( 'Pricing Matrix', 'tradeprint-configurator' ); ?></strong></p>
 				<?php $this->render_matrix_fields( $matrix ); ?>
+			</div>
+
+			<div class="options_group tpcw-preview-mapping-config">
+				<p><strong><?php echo esc_html__( 'Preview Image Mapping', 'tradeprint-configurator' ); ?></strong></p>
+				<div id="tpcw-preview-mappings" class="tpcw-repeater">
+					<?php foreach ( $preview_mappings as $mapping_index => $mapping ) : ?>
+						<?php $this->render_preview_mapping_row( (int) $mapping_index, $mapping ); ?>
+					<?php endforeach; ?>
+				</div>
+				<p><button type="button" class="button" id="tpcw-add-preview-mapping"><?php echo esc_html__( 'Add preview mapping', 'tradeprint-configurator' ); ?></button></p>
 			</div>
 
 			<div class="options_group tpcw-extra-services-config">
@@ -270,6 +281,31 @@ class TPCW_Product_Data {
 		</div>
 		<?php
 	}
+
+	/**
+	 * Render preview mapping row.
+	 *
+	 * @param int   $mapping_index Mapping index.
+	 * @param array $mapping Mapping payload.
+	 *
+	 * @return void
+	 */
+	private function render_preview_mapping_row( $mapping_index, $mapping ) {
+		$mapping = is_array( $mapping ) ? $mapping : array();
+		?>
+		<div class="tpcw-repeater-row tpcw-preview-mapping-row" data-index="<?php echo esc_attr( (string) $mapping_index ); ?>">
+			<div class="tpcw-grid">
+				<p><label><?php echo esc_html__( 'Attribute key', 'tradeprint-configurator' ); ?></label><input type="text" name="tpcw_config[preview_mappings][<?php echo esc_attr( (string) $mapping_index ); ?>][attribute_key]" value="<?php echo esc_attr( isset( $mapping['attribute_key'] ) ? $mapping['attribute_key'] : '' ); ?>" /></p>
+				<p><label><?php echo esc_html__( 'Option value key', 'tradeprint-configurator' ); ?></label><input type="text" name="tpcw_config[preview_mappings][<?php echo esc_attr( (string) $mapping_index ); ?>][option_value_key]" value="<?php echo esc_attr( isset( $mapping['option_value_key'] ) ? $mapping['option_value_key'] : '' ); ?>" /></p>
+				<p><label><?php echo esc_html__( 'Preview image attachment ID', 'tradeprint-configurator' ); ?></label><input type="number" class="small-text tpcw-media-id" min="0" name="tpcw_config[preview_mappings][<?php echo esc_attr( (string) $mapping_index ); ?>][image_id]" value="<?php echo esc_attr( isset( $mapping['image_id'] ) ? $mapping['image_id'] : 0 ); ?>" /> <button type="button" class="button tpcw-media-select"><?php echo esc_html__( 'Select image', 'tradeprint-configurator' ); ?></button></p>
+				<p><label><?php echo esc_html__( 'Preview label (optional)', 'tradeprint-configurator' ); ?></label><input type="text" name="tpcw_config[preview_mappings][<?php echo esc_attr( (string) $mapping_index ); ?>][label]" value="<?php echo esc_attr( isset( $mapping['label'] ) ? $mapping['label'] : '' ); ?>" /></p>
+				<p><label><?php echo esc_html__( 'Sort order', 'tradeprint-configurator' ); ?></label><input type="number" min="0" name="tpcw_config[preview_mappings][<?php echo esc_attr( (string) $mapping_index ); ?>][sort_order]" value="<?php echo esc_attr( isset( $mapping['sort_order'] ) ? $mapping['sort_order'] : 0 ); ?>" /></p>
+			</div>
+			<p><button type="button" class="button-link-delete tpcw-remove-row"><?php echo esc_html__( 'Remove mapping', 'tradeprint-configurator' ); ?></button></p>
+		</div>
+		<?php
+	}
+
 
 	/**
 	 * Render service fields.
@@ -461,8 +497,9 @@ class TPCW_Product_Data {
 		$config_input = isset( $_POST['tpcw_config'] ) && is_array( $_POST['tpcw_config'] ) ? wp_unslash( $_POST['tpcw_config'] ) : array();
 		$config       = array(
 			'attributes'     => $this->sanitize_attributes( isset( $config_input['attributes'] ) ? $config_input['attributes'] : array() ),
-			'matrix'         => $this->sanitize_matrix( isset( $config_input['matrix'] ) ? $config_input['matrix'] : array() ),
-			'extra_services' => $this->sanitize_extra_services( isset( $config_input['extra_services'] ) ? $config_input['extra_services'] : array() ),
+			'matrix'           => $this->sanitize_matrix( isset( $config_input['matrix'] ) ? $config_input['matrix'] : array() ),
+			'preview_mappings' => $this->sanitize_preview_mappings( isset( $config_input['preview_mappings'] ) ? $config_input['preview_mappings'] : array() ),
+			'extra_services'   => $this->sanitize_extra_services( isset( $config_input['extra_services'] ) ? $config_input['extra_services'] : array() ),
 		);
 
 		update_post_meta( $post_id, TPCW_Loader::META_CONFIG, $config );
@@ -696,6 +733,48 @@ class TPCW_Product_Data {
 
 		return $sanitized;
 	}
+
+	/**
+	 * Sanitize preview mapping rows.
+	 *
+	 * @param array $mappings Preview mappings payload.
+	 *
+	 * @return array
+	 */
+	private function sanitize_preview_mappings( $mappings ) {
+		$mappings  = is_array( $mappings ) ? $mappings : array();
+		$sanitized = array();
+
+		foreach ( $mappings as $mapping ) {
+			if ( ! is_array( $mapping ) ) {
+				continue;
+			}
+			$attribute_key = sanitize_key( isset( $mapping['attribute_key'] ) ? $mapping['attribute_key'] : '' );
+			$option_key    = sanitize_text_field( isset( $mapping['option_value_key'] ) ? $mapping['option_value_key'] : '' );
+			$image_id      = absint( isset( $mapping['image_id'] ) ? $mapping['image_id'] : 0 );
+			if ( '' === $attribute_key || '' === $option_key || $image_id <= 0 ) {
+				continue;
+			}
+
+			$sanitized[] = array(
+				'attribute_key'    => $attribute_key,
+				'option_value_key' => $option_key,
+				'image_id'         => $image_id,
+				'label'            => sanitize_text_field( isset( $mapping['label'] ) ? $mapping['label'] : '' ),
+				'sort_order'       => absint( isset( $mapping['sort_order'] ) ? $mapping['sort_order'] : 0 ),
+			);
+		}
+
+		usort(
+			$sanitized,
+			function ( $left, $right ) {
+				return (int) $left['sort_order'] - (int) $right['sort_order'];
+			}
+		);
+
+		return $sanitized;
+	}
+
 
 	/**
 	 * Sanitize extra services config.

@@ -107,3 +107,8 @@
 	border-color: #d63638;
 	background: #fcf0f1;
 }
+
+
+#tpcw_tradeprint_product_data .tpcw-preview-mapping-row {
+	border-left: 3px solid #2271b1;
+}

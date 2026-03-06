@@ -67,6 +67,18 @@
 			'</div><p><button type="button" class="button-link-delete tpcw-remove-row">Remove quantity</button></p></div>';
 	}
 
+
+	function previewMappingTemplate(index) {
+		var base = 'tpcw_config[preview_mappings][' + index + ']';
+		return '<div class="tpcw-repeater-row tpcw-preview-mapping-row" data-index="' + index + '"><div class="tpcw-grid">' +
+			'<p><label>Attribute key</label><input type="text" name="' + base + '[attribute_key]" value="" /></p>' +
+			'<p><label>Option value key</label><input type="text" name="' + base + '[option_value_key]" value="" /></p>' +
+			'<p><label>Preview image attachment ID</label><input type="number" min="0" class="small-text tpcw-media-id" name="' + base + '[image_id]" value="0" /> <button type="button" class="button tpcw-media-select">Select image</button></p>' +
+			'<p><label>Preview label (optional)</label><input type="text" name="' + base + '[label]" value="" /></p>' +
+			'<p><label>Sort order</label><input type="number" min="0" name="' + base + '[sort_order]" value="0" /></p>' +
+			'</div><p><button type="button" class="button-link-delete tpcw-remove-row">Remove mapping</button></p></div>';
+	}
+
 	function bindDefaultValueMirror($scope) {
 		$scope.find('.tpcw-option-row input[name*="[value_key]"]').on('input', function () {
 			var $row = $(this).closest('.tpcw-option-row');
@@ -254,6 +266,12 @@
 			var index = nextIndex('#tpcw-matrix-quantities .tpcw-repeater-row');
 			$quantities.append($(matrixQuantityTemplate(index)));
 			rebuildGrid();
+		});
+
+		var $previewMappings = $('#tpcw-preview-mappings');
+		$('#tpcw-add-preview-mapping').on('click', function () {
+			var index = nextIndex('#tpcw-preview-mappings .tpcw-repeater-row');
+			$previewMappings.append($(previewMappingTemplate(index)));
 		});
 
 		$(document).on('click', '.tpcw-remove-row', function () {
