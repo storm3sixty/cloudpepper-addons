@@ -1,0 +1,28 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RestaurantDesktopApp", "RestaurantDesktopApp\RestaurantDesktopApp.csproj", "{E4AE5AA8-4DC8-4B09-9A57-01A3A9E2ED61}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RestaurantDesktopApp.Core", "RestaurantDesktopApp.Core\RestaurantDesktopApp.Core.csproj", "{E7C2BC9D-A48A-4D55-B5F9-7DD6B3F1CF76}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RestaurantDesktopApp.Printing", "RestaurantDesktopApp.Printing\RestaurantDesktopApp.Printing.csproj", "{CB2333A0-44A9-4AA9-B162-A0FE1D2CF4B3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RestaurantDesktopApp.Tests", "RestaurantDesktopApp.Tests\RestaurantDesktopApp.Tests.csproj", "{72F1A80D-E42A-4D50-B342-B496EDBA6BF6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E4AE5AA8-4DC8-4B09-9A57-01A3A9E2ED61}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E4AE5AA8-4DC8-4B09-9A57-01A3A9E2ED61}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E7C2BC9D-A48A-4D55-B5F9-7DD6B3F1CF76}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E7C2BC9D-A48A-4D55-B5F9-7DD6B3F1CF76}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CB2333A0-44A9-4AA9-B162-A0FE1D2CF4B3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CB2333A0-44A9-4AA9-B162-A0FE1D2CF4B3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{72F1A80D-E42A-4D50-B342-B496EDBA6BF6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{72F1A80D-E42A-4D50-B342-B496EDBA6BF6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+	EndGlobalSection
+EndGlobal
