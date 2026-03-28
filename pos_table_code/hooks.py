@@ -1,0 +1,130 @@
+from odoo import SUPERUSER_ID, api
+
+
+TABLE_FORM_CANDIDATES = [
+    """
+    <data>
+        <xpath expr="//field[@name='name']" position="after">
+            <field name="table_code" placeholder="e.g. Family Booth"/>
+        </xpath>
+    </data>
+    """,
+    """
+    <data>
+        <xpath expr="//form//sheet//group[1]" position="inside">
+            <field name="table_code" placeholder="e.g. Family Booth"/>
+        </xpath>
+    </data>
+    """,
+]
+
+POS_CONFIG_FORM_CANDIDATES = [
+    """
+    <data>
+        <xpath expr="//form//sheet" position="inside">
+            <group string="POS UI Designer">
+                <field name="ui_enable_drag_and_drop"/>
+                <field name="ui_button_labels_json" widget="text"/>
+                <field name="ui_table_alias_json" widget="text"/>
+                <field name="ui_sales_receipt_note" widget="text"/>
+                <field name="ui_kitchen_receipt_note" widget="text"/>
+            </group>
+        </xpath>
+    </data>
+    """,
+    """
+    <data>
+        <xpath expr="//form//group[1]" position="after">
+            <group string="POS UI Designer">
+                <field name="ui_enable_drag_and_drop"/>
+                <field name="ui_button_labels_json" widget="text"/>
+                <field name="ui_table_alias_json" widget="text"/>
+                <field name="ui_sales_receipt_note" widget="text"/>
+                <field name="ui_kitchen_receipt_note" widget="text"/>
+            </group>
+        </xpath>
+    </data>
+    """,
+]
+
+
+def _create_extension_view(env, parent_view, model_name, arch_candidates, extension_name):
+    view_model = env["ir.ui.view"].sudo()
+    existing = view_model.search([
+        ("name", "=", extension_name),
+        ("inherit_id", "=", parent_view.id),
+    ], limit=1)
+    if existing:
+        return existing
+
+    for arch in arch_candidates:
+        try:
+            with env.cr.savepoint():
+                return view_model.create({
+                    "name": extension_name,
+                    "model": model_name,
+                    "type": parent_view.type,
+                    "mode": "extension",
+                    "inherit_id": parent_view.id,
+                    "arch": arch,
+                })
+        except Exception:
+            continue
+    return False
+
+
+def _resolve_env(*args):
+    if len(args) == 1 and hasattr(args[0], "cr"):
+        return args[0]
+    if len(args) >= 1:
+        return api.Environment(args[0], SUPERUSER_ID, {})
+    raise ValueError("Unsupported post_init_hook signature")
+
+
+
+
+def _cleanup_legacy_floor_views(view_model):
+    legacy_names = [
+        "pos.table.code.floor.form.extension",
+    ]
+    legacy_views = view_model.search([("name", "in", legacy_names)])
+    if legacy_views:
+        legacy_views.unlink()
+
+
+def _find_form_view(view_model, model_name):
+    return view_model.search([
+        ("model", "=", model_name),
+        ("type", "=", "form"),
+    ], order="priority, id", limit=1)
+
+
+def ensure_dynamic_views(env):
+    view_model = env["ir.ui.view"].sudo()
+
+    _cleanup_legacy_floor_views(view_model)
+
+    table_form = _find_form_view(view_model, "restaurant.table")
+    if table_form:
+        _create_extension_view(
+            env,
+            table_form,
+            "restaurant.table",
+            TABLE_FORM_CANDIDATES,
+            "pos.table.code.table.form.extension",
+        )
+
+    pos_config_form = _find_form_view(view_model, "pos.config")
+    if pos_config_form:
+        _create_extension_view(
+            env,
+            pos_config_form,
+            "pos.config",
+            POS_CONFIG_FORM_CANDIDATES,
+            "pos.table.code.pos.config.ui.designer.extension",
+        )
+
+
+def post_init_hook(*args):
+    env = _resolve_env(*args)
+    ensure_dynamic_views(env)
