@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_pos_wp_bridge_config_user,pos.wp.bridge.config user,model_pos_wp_bridge_config,point_of_sale.group_pos_manager,1,1,1,1
+access_pos_wp_booking_user,pos.wp.booking user,model_pos_wp_booking,point_of_sale.group_pos_manager,1,1,1,1
+access_pos_wp_order_user,pos.wp.order user,model_pos_wp_order,point_of_sale.group_pos_manager,1,1,1,1
