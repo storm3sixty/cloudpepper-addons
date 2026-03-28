@@ -47,6 +47,7 @@ class TPCW_Pricing_Service {
 		$selected_quantity   = isset( $input['selected_quantity'] ) ? absint( $input['selected_quantity'] ) : 0;
 		$custom_quantity     = isset( $input['custom_quantity'] ) ? absint( $input['custom_quantity'] ) : 0;
 		$selected_extras     = $this->sanitize_string_array( isset( $input['selected_extra_services'] ) ? $input['selected_extra_services'] : array() );
+		$commission_context = $this->resolve_commission_context( $product_id );
 
 		if ( ! $selected_quantity && $custom_quantity ) {
 			$selected_quantity = $custom_quantity;
@@ -77,6 +78,8 @@ class TPCW_Pricing_Service {
 					'selected_service'    => $selected_service,
 					'selected_attributes' => $selected_attributes,
 					'selected_extras'     => $selected_extras,
+						'commission_mode'     => $commission_context['mode'],
+						'commission_percent'  => $commission_context['percent'],
 					'summary_lines'       => array(
 						array(
 							'label' => __( 'Quantity', 'tradeprint-configurator' ),
@@ -116,6 +119,8 @@ class TPCW_Pricing_Service {
 			'available'             => $available,
 			'selected_attributes'   => $selected_attributes,
 			'selected_extras'       => $selected_extras,
+				'commission_mode'       => $commission_context['mode'],
+				'commission_percent'    => $commission_context['percent'],
 			'summary_lines'         => $this->build_summary_lines( $selected_attributes, $selected_extras, $selected_quantity, isset( $service['service_label'] ) ? $service['service_label'] : $selected_service, $final_price, $unit_price, isset( $service['delivery_label'] ) ? $service['delivery_label'] : '' ),
 		);
 
@@ -216,6 +221,30 @@ class TPCW_Pricing_Service {
 		}
 
 		return array_values( array_unique( $clean ) );
+	}
+
+
+	/**
+	 * Resolve commission mode/percentage for a product.
+	 *
+	 * @param int $product_id Product ID.
+	 *
+	 * @return array
+	 */
+	private function resolve_commission_context( $product_id ) {
+		$settings          = get_option( TPCW_Loader::OPTION_KEY, array() );
+		$global_commission = isset( $settings['global_commission'] ) ? (float) $settings['global_commission'] : 0;
+		$global_commission = max( 0, min( 100, $global_commission ) );
+
+		$mode    = get_post_meta( $product_id, '_tpcw_commission_mode', true );
+		$mode    = in_array( $mode, array( 'inherit_global', 'custom_percentage' ), true ) ? $mode : 'inherit_global';
+		$custom  = (float) get_post_meta( $product_id, '_tpcw_commission_custom_percentage', true );
+		$custom  = max( 0, min( 100, $custom ) );
+
+		return array(
+			'mode'    => $mode,
+			'percent' => 'custom_percentage' === $mode ? $custom : $global_commission,
+		);
 	}
 
 	/**

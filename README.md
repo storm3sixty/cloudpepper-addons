@@ -6,10 +6,10 @@ Production-ready scaffold for a WooCommerce extension that hosts a Tradeprint-st
 
 ✅ Included:
 - WooCommerce dependency guard + admin notice.
-- Plugin admin menu with **Dashboard**, **Settings**, and **Logs** placeholder.
+- Plugin admin menu with **Dashboard**, **Product Library**, **Settings**, and **Logs** placeholder.
 - Secure settings model for sandbox mode, bearer token, commission, delivery extension, order mode, and debug logging.
 - WooCommerce product data tab (**Tradeprint**) with:
-  - Product-level controls (enabled, product key, commission override, order mode override, pricing display mode).
+  - Product-level controls (enabled, product key, commission mode/custom percentage, order mode override, pricing display mode).
   - Structured repeatable attribute builder.
   - Nested option builder with media selector support.
 	  - Pricing matrix builder with spreadsheet-style grid editor (settings, services, quantities, inline cells).
@@ -18,6 +18,7 @@ Production-ready scaffold for a WooCommerce extension that hosts a Tradeprint-st
 	  - Conditional logic builder for attribute/option visibility rules.
 - Frontend renderer for enabled products that reads saved product meta only.
 - Sticky summary with client-side live updates for options/services/matrix/custom quantity via REST pricing requests.
+- Product Library flow for pulling mock/manual catalogue JSON, listing products, importing to WooCommerce, and syncing linked products.
 - REST namespace with config payload plus meta-driven price resolver endpoint (`/price`) and placeholder preflight endpoint.
 - WooCommerce cart/order integration for Tradeprint configurator payload capture and mock manual/auto submission workflows.
 
@@ -33,11 +34,13 @@ tradeprint-configurator-for-woocommerce.php
 includes/
   class-loader.php
   class-pricing-service.php
+  class-catalogue-importer.php
   class-mock-submission-service.php
   class-order-integration.php
   admin/
     class-admin.php
     class-product-data.php
+    class-product-library.php
   frontend/
     class-frontend.php
   api/

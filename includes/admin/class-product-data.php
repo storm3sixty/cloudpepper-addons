@@ -108,16 +108,29 @@ class TPCW_Product_Data {
 					)
 				);
 
+				woocommerce_wp_select(
+					array(
+						'id'      => '_tpcw_commission_mode',
+						'label'   => esc_html__( 'Commission mode', 'tradeprint-configurator' ),
+						'options' => array(
+							'inherit_global'    => esc_html__( 'Inherit global commission', 'tradeprint-configurator' ),
+							'custom_percentage' => esc_html__( 'Custom percentage', 'tradeprint-configurator' ),
+						),
+					)
+				);
+
 				woocommerce_wp_text_input(
 					array(
-						'id'                => '_tpcw_product_commission_override',
-						'label'             => esc_html__( 'Product commission override (%)', 'tradeprint-configurator' ),
+						'id'                => '_tpcw_commission_custom_percentage',
+						'label'             => esc_html__( 'Commission percentage (%)', 'tradeprint-configurator' ),
 						'type'              => 'number',
 						'custom_attributes' => array(
 							'min'  => '0',
 							'max'  => '100',
 							'step' => '0.01',
 						),
+						'desc_tip'          => true,
+						'description'       => esc_html__( 'Used only when commission mode is set to custom percentage.', 'tradeprint-configurator' ),
 					)
 				);
 
@@ -567,7 +580,14 @@ class TPCW_Product_Data {
 
 		update_post_meta( $post_id, '_tpcw_enabled', isset( $_POST['_tpcw_enabled'] ) ? 'yes' : 'no' );
 		update_post_meta( $post_id, '_tpcw_product_key', isset( $_POST['_tpcw_product_key'] ) ? sanitize_text_field( wp_unslash( $_POST['_tpcw_product_key'] ) ) : '' );
-		update_post_meta( $post_id, '_tpcw_product_commission_override', isset( $_POST['_tpcw_product_commission_override'] ) ? (float) wp_unslash( $_POST['_tpcw_product_commission_override'] ) : '' );
+		$commission_mode = isset( $_POST['_tpcw_commission_mode'] ) ? sanitize_key( wp_unslash( $_POST['_tpcw_commission_mode'] ) ) : 'inherit_global';
+		$commission_mode = in_array( $commission_mode, array( 'inherit_global', 'custom_percentage' ), true ) ? $commission_mode : 'inherit_global';
+		$commission_percentage = isset( $_POST['_tpcw_commission_custom_percentage'] ) ? (float) wp_unslash( $_POST['_tpcw_commission_custom_percentage'] ) : 0;
+		$commission_percentage = max( 0, min( 100, $commission_percentage ) );
+
+		update_post_meta( $post_id, '_tpcw_commission_mode', $commission_mode );
+		update_post_meta( $post_id, '_tpcw_commission_custom_percentage', $commission_percentage );
+		update_post_meta( $post_id, '_tpcw_product_commission_override', 'custom_percentage' === $commission_mode ? $commission_percentage : '' );
 
 		$order_mode = isset( $_POST['_tpcw_order_mode_override'] ) ? sanitize_key( wp_unslash( $_POST['_tpcw_order_mode_override'] ) ) : 'inherit';
 		$order_mode = in_array( $order_mode, array( 'inherit', 'manual', 'auto' ), true ) ? $order_mode : 'inherit';
@@ -577,14 +597,19 @@ class TPCW_Product_Data {
 		$pricing_mode = in_array( $pricing_mode, array( 'standard', 'matrix' ), true ) ? $pricing_mode : 'standard';
 		update_post_meta( $post_id, '_tpcw_pricing_display_mode', $pricing_mode );
 
-		$config_input = isset( $_POST['tpcw_config'] ) && is_array( $_POST['tpcw_config'] ) ? wp_unslash( $_POST['tpcw_config'] ) : array();
-			$config       = array(
-				'attributes'     => $this->sanitize_attributes( isset( $config_input['attributes'] ) ? $config_input['attributes'] : array() ),
-				'matrix'           => $this->sanitize_matrix( isset( $config_input['matrix'] ) ? $config_input['matrix'] : array() ),
-				'preview_mappings' => $this->sanitize_preview_mappings( isset( $config_input['preview_mappings'] ) ? $config_input['preview_mappings'] : array() ),
-				'conditional_rules'=> $this->sanitize_conditional_rules( isset( $config_input['conditional_rules'] ) ? $config_input['conditional_rules'] : array() ),
-				'extra_services'   => $this->sanitize_extra_services( isset( $config_input['extra_services'] ) ? $config_input['extra_services'] : array() ),
-			);
+		$config_input    = isset( $_POST['tpcw_config'] ) && is_array( $_POST['tpcw_config'] ) ? wp_unslash( $_POST['tpcw_config'] ) : array();
+		$existing_config = get_post_meta( $post_id, TPCW_Loader::META_CONFIG, true );
+		$existing_config = is_array( $existing_config ) ? $existing_config : array();
+
+		$config = array(
+			'attributes'        => $this->sanitize_attributes( isset( $config_input['attributes'] ) ? $config_input['attributes'] : array() ),
+			'matrix'            => $this->sanitize_matrix( isset( $config_input['matrix'] ) ? $config_input['matrix'] : array() ),
+			'preview_mappings'  => $this->sanitize_preview_mappings( isset( $config_input['preview_mappings'] ) ? $config_input['preview_mappings'] : array() ),
+			'conditional_rules' => $this->sanitize_conditional_rules( isset( $config_input['conditional_rules'] ) ? $config_input['conditional_rules'] : array() ),
+			'extra_services'    => $this->sanitize_extra_services( isset( $config_input['extra_services'] ) ? $config_input['extra_services'] : array() ),
+			'imported_product'  => isset( $existing_config['imported_product'] ) && is_array( $existing_config['imported_product'] ) ? $existing_config['imported_product'] : array(),
+			'import_meta'       => isset( $existing_config['import_meta'] ) && is_array( $existing_config['import_meta'] ) ? $existing_config['import_meta'] : array(),
+		);
 
 		update_post_meta( $post_id, TPCW_Loader::META_CONFIG, $config );
 	}

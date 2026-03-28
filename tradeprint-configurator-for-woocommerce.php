@@ -97,6 +97,7 @@ final class TPCW_Plugin {
 
 		new TPCW_Admin( $this->loader );
 		new TPCW_Product_Data( $this->loader );
+		new TPCW_Product_Library( $this->loader );
 		new TPCW_Frontend( $this->loader );
 		new TPCW_REST_Controller( $this->loader );
 		new TPCW_Order_Integration( $this->loader );

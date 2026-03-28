@@ -125,6 +125,7 @@ class TPCW_Admin {
 			'toplevel_page_' . $this->menu_slug,
 			$this->menu_slug . '_page_tpcw-settings',
 			$this->menu_slug . '_page_tpcw-logs',
+			$this->menu_slug . '_page_tpcw-product-library',
 		);
 
 		if ( ! in_array( $hook_suffix, $allowed, true ) ) {

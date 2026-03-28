@@ -92,6 +92,8 @@ class TPCW_REST_Controller {
 				'pricing_mode'   => get_post_meta( $product_id, '_tpcw_pricing_display_mode', true ),
 					'attributes'     => isset( $config['attributes'] ) ? $config['attributes'] : array(),
 					'conditional_rules' => isset( $config['conditional_rules'] ) ? $config['conditional_rules'] : array(),
+					'imported_product' => isset( $config['imported_product'] ) ? $config['imported_product'] : array(),
+					'import_meta'    => isset( $config['import_meta'] ) ? $config['import_meta'] : array(),
 					'extra_services' => isset( $config['extra_services'] ) ? $config['extra_services'] : array(),
 				'matrix'         => isset( $config['matrix'] ) ? $config['matrix'] : array(),
 				'message'        => 'Mock config payload from saved product meta only.',

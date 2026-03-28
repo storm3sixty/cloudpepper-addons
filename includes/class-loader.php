@@ -11,9 +11,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 require_once TPCW_PLUGIN_PATH . 'includes/admin/class-admin.php';
 require_once TPCW_PLUGIN_PATH . 'includes/admin/class-product-data.php';
+require_once TPCW_PLUGIN_PATH . 'includes/admin/class-product-library.php';
 require_once TPCW_PLUGIN_PATH . 'includes/frontend/class-frontend.php';
 require_once TPCW_PLUGIN_PATH . 'includes/api/class-rest-controller.php';
 require_once TPCW_PLUGIN_PATH . 'includes/class-pricing-service.php';
+require_once TPCW_PLUGIN_PATH . 'includes/class-catalogue-importer.php';
 require_once TPCW_PLUGIN_PATH . 'includes/class-mock-submission-service.php';
 require_once TPCW_PLUGIN_PATH . 'includes/class-order-integration.php';
 
