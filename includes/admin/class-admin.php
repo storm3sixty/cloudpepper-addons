@@ -39,6 +39,7 @@ class TPCW_Admin {
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+		add_action( 'admin_post_tpcw_clear_logs', array( $this, 'handle_clear_logs' ) );
 	}
 
 	/**
@@ -110,6 +111,7 @@ class TPCW_Admin {
 			'extend_delivery_days'   => isset( $settings['extend_delivery_days'] ) ? absint( $settings['extend_delivery_days'] ) : 0,
 			'default_order_mode'     => isset( $settings['default_order_mode'] ) && in_array( $settings['default_order_mode'], array( 'manual', 'auto' ), true ) ? $settings['default_order_mode'] : 'manual',
 			'enable_debug_logging'   => ! empty( $settings['enable_debug_logging'] ) ? 'yes' : 'no',
+			'submission_mode'        => isset( $settings['submission_mode'] ) && in_array( $settings['submission_mode'], array( 'mock', 'live' ), true ) ? $settings['submission_mode'] : 'mock',
 		);
 	}
 
@@ -212,6 +214,15 @@ class TPCW_Admin {
 						<th scope="row"><label for="tpcw_enable_debug_logging"><?php echo esc_html__( 'Enable debug logging', 'tradeprint-configurator' ); ?></label></th>
 						<td><input type="checkbox" id="tpcw_enable_debug_logging" name="tpcw_settings[enable_debug_logging]" value="1" <?php checked( isset( $settings['enable_debug_logging'] ) ? $settings['enable_debug_logging'] : 'no', 'yes' ); ?> /></td>
 					</tr>
+					<tr>
+						<th scope="row"><label for="tpcw_submission_mode"><?php echo esc_html__( 'Order submission mode', 'tradeprint-configurator' ); ?></label></th>
+						<td>
+							<select id="tpcw_submission_mode" name="tpcw_settings[submission_mode]">
+								<option value="mock" <?php selected( isset( $settings['submission_mode'] ) ? $settings['submission_mode'] : 'mock', 'mock' ); ?>><?php echo esc_html__( 'Mock mode', 'tradeprint-configurator' ); ?></option>
+								<option value="live" <?php selected( isset( $settings['submission_mode'] ) ? $settings['submission_mode'] : 'mock', 'live' ); ?>><?php echo esc_html__( 'Live submission mode', 'tradeprint-configurator' ); ?></option>
+							</select>
+						</td>
+					</tr>
 					</tbody>
 				</table>
 				<?php submit_button(); ?>
@@ -229,11 +240,49 @@ class TPCW_Admin {
 		if ( ! current_user_can( 'manage_woocommerce' ) ) {
 			return;
 		}
+
+		$entries = array_reverse( TPCW_Logger::get_logs() );
 		?>
 		<div class="wrap">
 			<h1><?php echo esc_html__( 'Tradeprint Logs', 'tradeprint-configurator' ); ?></h1>
-			<p><?php echo esc_html__( 'Log viewer placeholder. Integrate WC logger or custom storage in a future version.', 'tradeprint-configurator' ); ?></p>
+			<p><?php echo esc_html__( 'Recent safe debug entries. Bearer token values are never stored in logs.', 'tradeprint-configurator' ); ?></p>
+			<p>
+				<a class="button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=tpcw_clear_logs' ), 'tpcw_clear_logs' ) ); ?>"><?php echo esc_html__( 'Clear Logs', 'tradeprint-configurator' ); ?></a>
+			</p>
+			<?php if ( empty( $entries ) ) : ?>
+				<p><?php echo esc_html__( 'No logs available.', 'tradeprint-configurator' ); ?></p>
+			<?php else : ?>
+				<table class="widefat striped">
+					<thead><tr><th><?php echo esc_html__( 'Time', 'tradeprint-configurator' ); ?></th><th><?php echo esc_html__( 'Level', 'tradeprint-configurator' ); ?></th><th><?php echo esc_html__( 'Message', 'tradeprint-configurator' ); ?></th><th><?php echo esc_html__( 'Context', 'tradeprint-configurator' ); ?></th></tr></thead>
+					<tbody>
+					<?php foreach ( $entries as $entry ) : ?>
+						<tr>
+							<td><?php echo esc_html( isset( $entry['timestamp'] ) ? $entry['timestamp'] : '' ); ?></td>
+							<td><?php echo esc_html( isset( $entry['level'] ) ? $entry['level'] : '' ); ?></td>
+							<td><?php echo esc_html( isset( $entry['message'] ) ? $entry['message'] : '' ); ?></td>
+							<td><code><?php echo esc_html( wp_json_encode( isset( $entry['context'] ) ? $entry['context'] : array() ) ); ?></code></td>
+						</tr>
+					<?php endforeach; ?>
+					</tbody>
+				</table>
+			<?php endif; ?>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Handle clear logs action.
+	 *
+	 * @return void
+	 */
+	public function handle_clear_logs() {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'You do not have permission to clear logs.', 'tradeprint-configurator' ) );
+		}
+
+		check_admin_referer( 'tpcw_clear_logs' );
+		TPCW_Logger::clear_logs();
+		wp_safe_redirect( admin_url( 'admin.php?page=tpcw-logs' ) );
+		exit;
 	}
 }

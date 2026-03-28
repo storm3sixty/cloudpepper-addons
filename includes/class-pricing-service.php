@@ -15,6 +15,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 class TPCW_Pricing_Service {
 
 	/**
+	 * Tradeprint service.
+	 *
+	 * @var TPCW_Tradeprint_Service
+	 */
+	private $tradeprint_service;
+
+	/**
+	 * Constructor.
+	 */
+	public function __construct() {
+		$this->tradeprint_service = new TPCW_Tradeprint_Service();
+	}
+
+	/**
 	 * Resolve pricing using local product config/meta only.
 	 *
 	 * @param array $input Request payload.
@@ -59,6 +73,17 @@ class TPCW_Pricing_Service {
 
 		if ( ! $selected_service && ! $custom_quantity ) {
 			return new WP_Error( 'tpcw_missing_service', __( 'Please select a delivery/service option.', 'tradeprint-configurator' ), array( 'status' => 400 ) );
+		}
+
+
+		$live = $this->resolve_live_price( $product_id, $input );
+		if ( is_array( $live ) && ! empty( $live['success'] ) ) {
+			$live['selected_attributes'] = $selected_attributes;
+			$live['selected_extras']     = $selected_extras;
+			$live['commission_mode']     = $commission_context['mode'];
+			$live['commission_percent']  = $commission_context['percent'];
+			$live['summary_lines']       = $this->build_summary_lines( $selected_attributes, $selected_extras, isset( $live['selected_quantity'] ) ? (int) $live['selected_quantity'] : $selected_quantity, isset( $live['service_label'] ) ? $live['service_label'] : $selected_service, isset( $live['final_display_price'] ) ? (float) $live['final_display_price'] : 0, isset( $live['unit_price'] ) ? (float) $live['unit_price'] : 0, isset( $live['estimated_delivery'] ) ? $live['estimated_delivery'] : '' );
+			return $live;
 		}
 
 		$services = isset( $matrix['services'] ) && is_array( $matrix['services'] ) ? $matrix['services'] : array();
@@ -178,6 +203,122 @@ class TPCW_Pricing_Service {
 		}
 
 		return array();
+	}
+
+
+	/**
+	 * Try resolving live pricing from Tradeprint prices-v2 endpoint.
+	 *
+	 * @param int   $product_id Product ID.
+	 * @param array $input Request input.
+	 *
+	 * @return array|WP_Error
+	 */
+	private function resolve_live_price( $product_id, $input ) {
+		$product_key = sanitize_text_field( (string) get_post_meta( $product_id, '_tpcw_product_key', true ) );
+		if ( '' === $product_key ) {
+			return new WP_Error( 'tpcw_live_missing_product_key', __( 'Live pricing skipped: missing Tradeprint product key.', 'tradeprint-configurator' ) );
+		}
+
+		$selected_service = isset( $input['selected_service'] ) ? sanitize_key( $input['selected_service'] ) : '';
+		$selected_qty     = isset( $input['selected_quantity'] ) ? absint( $input['selected_quantity'] ) : 0;
+		$custom_qty       = isset( $input['custom_quantity'] ) ? absint( $input['custom_quantity'] ) : 0;
+		if ( ! $selected_qty && $custom_qty ) {
+			$selected_qty = $custom_qty;
+		}
+
+		if ( ! $selected_service || ! $selected_qty ) {
+			return new WP_Error( 'tpcw_live_missing_required', __( 'Live pricing skipped: missing service/quantity.', 'tradeprint-configurator' ) );
+		}
+
+		$production_data = isset( $input['selected_attributes'] ) && is_array( $input['selected_attributes'] ) ? $this->sanitize_selected_attributes( $input['selected_attributes'] ) : array();
+		$price_body      = array(
+			'productId'      => $product_key,
+			'serviceLevel'   => $selected_service,
+			'quantity'       => array( $selected_qty ),
+			'productionData' => $production_data,
+		);
+
+		$response = $this->tradeprint_service->get_prices_v2( $price_body );
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		$body = isset( $response['body'] ) && is_array( $response['body'] ) ? $response['body'] : array();
+		$raw_price = $this->extract_first_price( $body );
+		if ( null === $raw_price ) {
+			return new WP_Error( 'tpcw_live_missing_price', __( 'Live pricing returned no valid price.', 'tradeprint-configurator' ) );
+		}
+
+		$commission = $this->resolve_commission_context( $product_id );
+		$final      = $raw_price + ( $raw_price * ( (float) $commission['percent'] / 100 ) );
+		$unit       = $selected_qty > 0 ? ( $final / $selected_qty ) : 0;
+
+		$delivery = '';
+		$delivery_response = $this->tradeprint_service->get_expected_delivery_date(
+			array(
+				'productId'      => $product_key,
+				'productionData' => $production_data,
+				'serviceLevel'   => $selected_service,
+				'quantity'       => $selected_qty,
+			)
+		);
+		if ( ! is_wp_error( $delivery_response ) ) {
+			$delivery = $this->extract_delivery_label( isset( $delivery_response['body'] ) ? $delivery_response['body'] : array() );
+		}
+
+		return array(
+			'success'                   => true,
+			'pricing_status'            => 'live_exact_match',
+			'product_id'                => $product_id,
+			'selected_quantity'         => $selected_qty,
+			'selected_service'          => $selected_service,
+			'service_label'             => $selected_service,
+			'estimated_delivery'        => $delivery,
+			'base_price'                => (float) $raw_price,
+			'base_price_html'           => wc_price( (float) $raw_price ),
+			'final_display_price'       => (float) $final,
+			'final_display_price_html'  => wc_price( (float) $final ),
+			'unit_price'                => (float) $unit,
+			'unit_price_html'           => $unit > 0 ? wc_price( (float) $unit ) : '',
+			'available'                 => true,
+		);
+	}
+
+	/**
+	 * Extract first numeric price from API response.
+	 *
+	 * @param array $body Response body.
+	 *
+	 * @return float|null
+	 */
+	private function extract_first_price( $body ) {
+		$body = is_array( $body ) ? $body : array();
+		$iterator = new RecursiveIteratorIterator( new RecursiveArrayIterator( $body ) );
+		foreach ( $iterator as $key => $value ) {
+			$key = strtolower( (string) $key );
+			if ( in_array( $key, array( 'price', 'finalprice', 'totalprice', 'amount' ), true ) && is_numeric( $value ) ) {
+				return (float) $value;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Extract delivery label from API response.
+	 *
+	 * @param array $body Response body.
+	 *
+	 * @return string
+	 */
+	private function extract_delivery_label( $body ) {
+		$body = is_array( $body ) ? $body : array();
+		foreach ( array( 'expectedDeliveryDate', 'deliveryDate', 'estimatedDeliveryDate', 'delivery_label' ) as $key ) {
+			if ( ! empty( $body[ $key ] ) ) {
+				return sanitize_text_field( (string) $body[ $key ] );
+			}
+		}
+		return '';
 	}
 
 	/**

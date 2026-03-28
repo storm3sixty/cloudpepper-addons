@@ -19,6 +19,7 @@ Production-ready scaffold for a WooCommerce extension that hosts a Tradeprint-st
 - Frontend renderer for enabled products that reads saved product meta only.
 - Sticky summary with client-side live updates for options/services/matrix/custom quantity via REST pricing requests.
 - Product Library flow for pulling mock/manual catalogue JSON, listing products, importing to WooCommerce, and syncing linked products.
+- Live Tradeprint sandbox API integration for preflight, prices-v2, quantities-v2, expected delivery date, order submit, order status, and cancel item (with graceful fallbacks).
 - REST namespace with config payload plus meta-driven price resolver endpoint (`/price`) and placeholder preflight endpoint.
 - WooCommerce cart/order integration for Tradeprint configurator payload capture and mock manual/auto submission workflows.
 
@@ -34,6 +35,10 @@ tradeprint-configurator-for-woocommerce.php
 includes/
   class-loader.php
   class-pricing-service.php
+  class-api-client.php
+  class-tradeprint-service.php
+  class-logger.php
+  class-order-submission-service.php
   class-catalogue-importer.php
   class-mock-submission-service.php
   class-order-integration.php

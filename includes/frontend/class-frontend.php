@@ -72,6 +72,7 @@ class TPCW_Frontend {
 			'tpcwFrontend',
 			array(
 				'priceEndpoint' => esc_url_raw( rest_url( TPCW_REST_Controller::NAMESPACE . '/price' ) ),
+				'preflightEndpoint' => esc_url_raw( rest_url( TPCW_REST_Controller::NAMESPACE . '/preflight' ) ),
 				'pricingModeLabel' => __( 'Pricing mode', 'tradeprint-configurator' ),
 				'loadingLabel' => __( 'Updating price…', 'tradeprint-configurator' ),
 				'errorLabel' => __( 'Unable to update pricing right now. Please try again.', 'tradeprint-configurator' ),
@@ -125,6 +126,12 @@ class TPCW_Frontend {
 			</div>
 			<div class="tpcw-section tpcw-matrix">
 				<?php $this->render_matrix( $matrix ); ?>
+			</div>
+			<div class="tpcw-section tpcw-preflight">
+				<strong><?php echo esc_html__( 'Artwork Preflight', 'tradeprint-configurator' ); ?></strong>
+				<p><label for="tpcw-artwork-url"><?php echo esc_html__( 'Artwork URL', 'tradeprint-configurator' ); ?></label> <input type="url" id="tpcw-artwork-url" class="regular-text" /></p>
+				<p><button type="button" class="button" id="tpcw-check-preflight"><?php echo esc_html__( 'Check artwork', 'tradeprint-configurator' ); ?></button></p>
+				<div id="tpcw-preflight-status" class="tpcw-inline-message" aria-live="polite"></div>
 			</div>
 			<div class="tpcw-section tpcw-services">
 				<strong><?php echo esc_html__( 'Extra Services', 'tradeprint-configurator' ); ?></strong>

@@ -15,8 +15,12 @@ require_once TPCW_PLUGIN_PATH . 'includes/admin/class-product-library.php';
 require_once TPCW_PLUGIN_PATH . 'includes/frontend/class-frontend.php';
 require_once TPCW_PLUGIN_PATH . 'includes/api/class-rest-controller.php';
 require_once TPCW_PLUGIN_PATH . 'includes/class-pricing-service.php';
+require_once TPCW_PLUGIN_PATH . 'includes/class-logger.php';
+require_once TPCW_PLUGIN_PATH . 'includes/class-api-client.php';
+require_once TPCW_PLUGIN_PATH . 'includes/class-tradeprint-service.php';
 require_once TPCW_PLUGIN_PATH . 'includes/class-catalogue-importer.php';
 require_once TPCW_PLUGIN_PATH . 'includes/class-mock-submission-service.php';
+require_once TPCW_PLUGIN_PATH . 'includes/class-order-submission-service.php';
 require_once TPCW_PLUGIN_PATH . 'includes/class-order-integration.php';
 
 /**

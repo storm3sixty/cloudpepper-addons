@@ -312,7 +312,8 @@
 			custom_quantity: state.customQuantity || 0,
 			selected_extra_services: getExtras($configurator),
 			resolved_pricing_payload: state.lastResponse || null,
-			pricing_mode: String($configurator.data('pricing-mode') || 'standard')
+			pricing_mode: String($configurator.data('pricing-mode') || 'standard'),
+			preflight: state.preflight || { status: 'not_checked', request_id: '', artwork_url: '' }
 		};
 
 		$('#tpcw-config-payload').val(JSON.stringify(payload));
@@ -382,6 +383,45 @@
 			});
 	}
 
+
+	function requestPreflight($configurator, state, buildPayload) {
+		var artworkUrl = String($('#tpcw-artwork-url').val() || '');
+		if (!artworkUrl) {
+			$('#tpcw-preflight-status').text('Please provide an artwork URL.').addClass('is-error');
+			return;
+		}
+
+		$('#tpcw-preflight-status').text('Checking artwork…').removeClass('is-error');
+		fetch(tpcwFrontend.preflightEndpoint, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				action: 'initiate',
+				productId: String($configurator.data('product-id') || ''),
+				fileUrls: [artworkUrl],
+				productionData: getAttributes($configurator)
+			})
+		})
+			.then(function (response) { return response.json(); })
+			.then(function (data) {
+				if (!data || !data.success) {
+					throw data;
+				}
+				var requestId = '';
+				if (data.data && typeof data.data === 'object') {
+					requestId = String(data.data.requestId || data.data.requestID || data.data.id || '');
+				}
+				state.preflight = { status: 'passed', request_id: requestId, artwork_url: artworkUrl };
+				$('#tpcw-preflight-status').text('Preflight submitted successfully.').removeClass('is-error');
+				setCartPayload($configurator, state, buildPayload());
+			})
+			.catch(function (error) {
+				state.preflight = { status: 'failed', request_id: '', artwork_url: artworkUrl };
+				$('#tpcw-preflight-status').text((error && error.message) ? error.message : 'Preflight failed.').addClass('is-error');
+				setCartPayload($configurator, state, buildPayload());
+			});
+	}
+
 	$(function () {
 		var $configurator = $('#tpcw-configurator');
 		if (!$configurator.length || !window.tpcwFrontend || !tpcwFrontend.priceEndpoint) {
@@ -394,7 +434,8 @@
 			lastResponse: null,
 			selectedService: '',
 			selectedQuantity: 0,
-			customQuantity: 0
+			customQuantity: 0,
+			preflight: { status: 'not_checked', request_id: '', artwork_url: '' }
 		};
 
 			function buildPayload() {
@@ -407,12 +448,14 @@
 				return {
 					product_id: parseInt($configurator.data('product-id'), 10) || 0,
 					selected_attributes: selectedAttributes,
-				selected_service: state.selectedService,
-				selected_quantity: state.selectedQuantity,
-				custom_quantity: state.customQuantity,
-				selected_extra_services: getExtras($configurator)
-			};
-		}
+					selected_service: state.selectedService,
+					selected_quantity: state.selectedQuantity,
+					custom_quantity: state.customQuantity,
+					selected_extra_services: getExtras($configurator),
+					preflight: state.preflight || { status: 'not_checked', request_id: '', artwork_url: '' }
+				};
+			}
+
 
 			$configurator.on('click', '.tpcw-option-card', function () {
 			var $clicked = $(this);
@@ -424,6 +467,18 @@
 
 			$configurator.on('change', '.tpcw-select, .tpcw-service-toggle', function () {
 				setCartPayload($configurator, state, buildPayload());
+			});
+
+			$('#tpcw-check-preflight').on('click', function () {
+				requestPreflight($configurator, state, buildPayload);
+			});
+
+			$('form.cart').on('submit', function (event) {
+				var preflightEnabled = $configurator.find('.tpcw-service-toggle[value="preflight"]').is(':checked');
+				if (preflightEnabled && (!state.preflight || state.preflight.status !== 'passed')) {
+					event.preventDefault();
+					showInlineMessage('Please run artwork preflight before adding to cart when preflight service is selected.', true);
+				}
 			});
 
 		$configurator.on('click', '.tpcw-matrix-cell:not([disabled])', function () {

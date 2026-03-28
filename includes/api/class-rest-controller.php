@@ -27,12 +27,20 @@ class TPCW_REST_Controller {
 	private $pricing_service;
 
 	/**
+	 * Tradeprint service.
+	 *
+	 * @var TPCW_Tradeprint_Service
+	 */
+	private $tradeprint_service;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param TPCW_Loader $loader Loader.
 	 */
 	public function __construct( TPCW_Loader $loader ) {
-		$this->pricing_service = new TPCW_Pricing_Service();
+		$this->pricing_service   = new TPCW_Pricing_Service();
+		$this->tradeprint_service = new TPCW_Tradeprint_Service();
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 	}
 
@@ -139,13 +147,36 @@ class TPCW_REST_Controller {
 	 * @return WP_REST_Response
 	 */
 	public function post_preflight( WP_REST_Request $request ) {
-		return new WP_REST_Response(
-			array(
-				'valid'   => true,
-				'errors'  => array(),
-				'warning' => 'Mock preflight only. Attach real validation and stock checks later.',
-			),
-			200
+		$params = $request->get_json_params();
+		$params = is_array( $params ) ? $params : $request->get_params();
+		$params = is_array( $params ) ? $params : array();
+
+		$action = isset( $params['action'] ) ? sanitize_key( $params['action'] ) : 'initiate';
+		if ( 'status' === $action ) {
+			$request_id = isset( $params['requestId'] ) ? sanitize_text_field( $params['requestId'] ) : '';
+			if ( '' === $request_id ) {
+				return new WP_REST_Response( array( 'success' => false, 'message' => __( 'Missing preflight request ID.', 'tradeprint-configurator' ) ), 400 );
+			}
+
+			$response = $this->tradeprint_service->get_preflight_status( $request_id );
+			if ( is_wp_error( $response ) ) {
+				return new WP_REST_Response( array( 'success' => false, 'message' => $response->get_error_message() ), 400 );
+			}
+
+			return new WP_REST_Response( array( 'success' => true, 'mode' => 'live', 'data' => isset( $response['body'] ) ? $response['body'] : array() ), 200 );
+		}
+
+		$payload = array(
+			'productId'      => isset( $params['productId'] ) ? sanitize_text_field( $params['productId'] ) : '',
+			'fileUrls'       => isset( $params['fileUrls'] ) && is_array( $params['fileUrls'] ) ? array_map( 'esc_url_raw', $params['fileUrls'] ) : array(),
+			'productionData' => isset( $params['productionData'] ) && is_array( $params['productionData'] ) ? $params['productionData'] : array(),
 		);
+
+		$response = $this->tradeprint_service->initiate_preflight( $payload );
+		if ( is_wp_error( $response ) ) {
+			return new WP_REST_Response( array( 'success' => false, 'message' => $response->get_error_message() ), 400 );
+		}
+
+		return new WP_REST_Response( array( 'success' => true, 'mode' => 'live', 'data' => isset( $response['body'] ) ? $response['body'] : array() ), 200 );
 	}
 }

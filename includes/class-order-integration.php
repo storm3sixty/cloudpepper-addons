@@ -30,6 +30,10 @@ class TPCW_Order_Integration {
 	const META_MESSAGE = '_tpcw_submission_message';
 	const META_IS_TPCW = '_tpcw_is_tradeprint';
 	const META_PRODUCT_KEY = '_tpcw_product_key';
+	const META_ORDER_REFERENCE = '_tpcw_order_reference';
+	const META_ITEM_REFERENCE = '_tpcw_item_reference';
+	const META_STATUS_SYNC = '_tpcw_status_sync';
+	const META_CANCEL_RESULT = '_tpcw_cancel_result';
 
 	/**
 	 * Submission statuses.
@@ -48,9 +52,9 @@ class TPCW_Order_Integration {
 	private $pricing_service;
 
 	/**
-	 * Mock submission service.
+	 * Submission service.
 	 *
-	 * @var TPCW_Mock_Submission_Service
+	 * @var TPCW_Order_Submission_Service
 	 */
 	private $submission_service;
 
@@ -61,7 +65,7 @@ class TPCW_Order_Integration {
 	 */
 	public function __construct( TPCW_Loader $loader ) {
 		$this->pricing_service    = new TPCW_Pricing_Service();
-		$this->submission_service = new TPCW_Mock_Submission_Service();
+		$this->submission_service = new TPCW_Order_Submission_Service();
 
 		add_filter( 'woocommerce_add_to_cart_validation', array( $this, 'validate_add_to_cart' ), 10, 5 );
 		add_filter( 'woocommerce_add_cart_item_data', array( $this, 'add_cart_item_data' ), 10, 3 );
@@ -70,6 +74,8 @@ class TPCW_Order_Integration {
 		add_action( 'woocommerce_order_status_processing', array( $this, 'auto_submit_order_items' ) );
 		add_action( 'add_meta_boxes', array( $this, 'register_order_metabox' ) );
 		add_action( 'admin_post_tpcw_manual_send', array( $this, 'handle_manual_send' ) );
+		add_action( 'admin_post_tpcw_refresh_statuses', array( $this, 'handle_refresh_statuses' ) );
+		add_action( 'admin_post_tpcw_cancel_item', array( $this, 'handle_cancel_item' ) );
 		add_action( 'woocommerce_after_order_itemmeta', array( $this, 'render_admin_item_meta' ), 10, 3 );
 	}
 
@@ -111,6 +117,16 @@ class TPCW_Order_Integration {
 			}
 			if ( empty( $payload['selected_service'] ) && empty( $payload['custom_quantity'] ) ) {
 				wc_add_notice( __( 'Please select a delivery service option.', 'tradeprint-configurator' ), 'error' );
+				return false;
+			}
+		}
+
+
+
+		if ( ! empty( $payload['selected_extra_services'] ) && in_array( 'preflight', (array) $payload['selected_extra_services'], true ) ) {
+			$preflight = isset( $payload['preflight'] ) && is_array( $payload['preflight'] ) ? $payload['preflight'] : array();
+			if ( 'passed' !== ( isset( $preflight['status'] ) ? sanitize_key( $preflight['status'] ) : '' ) ) {
+				wc_add_notice( __( 'Please complete artwork preflight before adding to cart.', 'tradeprint-configurator' ), 'error' );
 				return false;
 			}
 		}
@@ -325,6 +341,9 @@ class TPCW_Order_Integration {
 		}
 		echo '</ul>';
 
+		$status_url = wp_nonce_url( admin_url( 'admin-post.php?action=tpcw_refresh_statuses&order_id=' . absint( $order->get_id() ) ), 'tpcw_refresh_statuses_' . $order->get_id() );
+		echo '<p><a class="button" href="' . esc_url( $status_url ) . '">' . esc_html__( 'Refresh Tradeprint Statuses', 'tradeprint-configurator' ) . '</a></p>';
+
 		if ( $has_manual ) {
 			$url = wp_nonce_url(
 				admin_url( 'admin-post.php?action=tpcw_manual_send&order_id=' . absint( $order->get_id() ) ),
@@ -415,6 +434,18 @@ class TPCW_Order_Integration {
 		if ( $submitted ) {
 			echo '<p><strong>' . esc_html__( 'Submitted at', 'tradeprint-configurator' ) . ':</strong> ' . esc_html( $submitted ) . '</p>';
 		}
+		$order_reference = $item->get_meta( self::META_ORDER_REFERENCE, true );
+		$item_reference  = $item->get_meta( self::META_ITEM_REFERENCE, true );
+		if ( $order_reference ) {
+			echo '<p><strong>' . esc_html__( 'Tradeprint order reference', 'tradeprint-configurator' ) . ':</strong> ' . esc_html( $order_reference ) . '</p>';
+		}
+		if ( $item_reference ) {
+			echo '<p><strong>' . esc_html__( 'Tradeprint item reference', 'tradeprint-configurator' ) . ':</strong> ' . esc_html( $item_reference ) . '</p>';
+		}
+		if ( self::STATUS_SUBMITTED === $status && $order_reference && $item_reference && current_user_can( 'manage_woocommerce' ) ) {
+			$cancel_url = wp_nonce_url( admin_url( 'admin-post.php?action=tpcw_cancel_item&order_id=' . absint( $item->get_order_id() ) . '&item_id=' . absint( $item->get_id() ) ), 'tpcw_cancel_item_' . $item->get_id() );
+			echo '<p><a class="button button-small" href="' . esc_url( $cancel_url ) . '">' . esc_html__( 'Cancel Tradeprint Item', 'tradeprint-configurator' ) . '</a></p>';
+		}
 		if ( $message ) {
 			echo '<p><strong>' . esc_html__( 'Message', 'tradeprint-configurator' ) . ':</strong> ' . esc_html( $message ) . '</p>';
 		}
@@ -444,6 +475,8 @@ class TPCW_Order_Integration {
 
 		$item->update_meta_data( self::META_STATUS, self::STATUS_SUBMITTED );
 		$item->update_meta_data( self::META_EXTERNAL_ID, isset( $result['external_order_id'] ) ? sanitize_text_field( $result['external_order_id'] ) : '' );
+		$item->update_meta_data( self::META_ORDER_REFERENCE, isset( $result['order_reference'] ) ? sanitize_text_field( $result['order_reference'] ) : '' );
+		$item->update_meta_data( self::META_ITEM_REFERENCE, isset( $result['item_reference'] ) ? sanitize_text_field( $result['item_reference'] ) : '' );
 		$item->update_meta_data( self::META_SUBMITTED_AT, isset( $result['submitted_at'] ) ? sanitize_text_field( $result['submitted_at'] ) : '' );
 		$item->update_meta_data( self::META_MESSAGE, isset( $result['status'] ) ? sanitize_text_field( $result['status'] ) : '' );
 		$item->update_meta_data( '_tpcw_submission_preview', isset( $result['request_preview'] ) ? $result['request_preview'] : array() );
@@ -479,6 +512,7 @@ class TPCW_Order_Integration {
 	private function sanitize_cart_payload( $payload, $product_id ) {
 		$payload = is_array( $payload ) ? $payload : array();
 
+
 		$pricing_input = array(
 			'product_id'              => $product_id,
 			'selected_attributes'     => isset( $payload['selected_attributes'] ) ? $payload['selected_attributes'] : array(),
@@ -502,6 +536,12 @@ class TPCW_Order_Integration {
 			'pricing_payload'        => $resolved,
 			'pricing_mode'           => sanitize_key( (string) get_post_meta( $product_id, '_tpcw_pricing_display_mode', true ) ),
 			'tradeprint_product_key' => sanitize_text_field( (string) get_post_meta( $product_id, '_tpcw_product_key', true ) ),
+			'preflight'            => isset( $payload['preflight'] ) && is_array( $payload['preflight'] ) ? array(
+				'status'     => isset( $payload['preflight']['status'] ) ? sanitize_key( $payload['preflight']['status'] ) : '',
+				'request_id' => isset( $payload['preflight']['request_id'] ) ? sanitize_text_field( $payload['preflight']['request_id'] ) : '',
+				'artwork_url'=> isset( $payload['preflight']['artwork_url'] ) ? esc_url_raw( $payload['preflight']['artwork_url'] ) : '',
+			) : array(),
+			'file_urls'             => isset( $payload['preflight']['artwork_url'] ) ? array( esc_url_raw( $payload['preflight']['artwork_url'] ) ) : array(),
 		);
 	}
 
@@ -613,6 +653,94 @@ class TPCW_Order_Integration {
 		}
 
 		return isset( $values[0] ) && $selected_value === $values[0];
+	}
+
+
+	/**
+	 * Refresh Tradeprint statuses from API.
+	 *
+	 * @return void
+	 */
+	public function handle_refresh_statuses() {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'tradeprint-configurator' ) );
+		}
+
+		$order_id = isset( $_GET['order_id'] ) ? absint( $_GET['order_id'] ) : 0;
+		if ( ! $order_id || ! wp_verify_nonce( isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '', 'tpcw_refresh_statuses_' . $order_id ) ) {
+			wp_die( esc_html__( 'Invalid status refresh request.', 'tradeprint-configurator' ) );
+		}
+
+		$order = wc_get_order( $order_id );
+		if ( ! $order ) {
+			wp_safe_redirect( admin_url( 'edit.php?post_type=shop_order' ) );
+			exit;
+		}
+
+		$references = array();
+		foreach ( $order->get_items() as $item ) {
+			$ref = $item->get_meta( self::META_ORDER_REFERENCE, true );
+			if ( $ref ) {
+				$references[] = $ref;
+			}
+		}
+
+		$result = $this->submission_service->fetch_statuses( $references );
+		if ( is_wp_error( $result ) ) {
+			TPCW_Logger::log( 'error', 'Order status refresh failed', array( 'order_id' => $order_id, 'message' => $result->get_error_message() ) );
+		} else {
+			$body = isset( $result['body'] ) ? $result['body'] : array();
+			foreach ( $order->get_items() as $item ) {
+				$item->update_meta_data( self::META_STATUS_SYNC, $body );
+				$item->save();
+			}
+		}
+
+		wp_safe_redirect( admin_url( 'post.php?post=' . $order_id . '&action=edit' ) );
+		exit;
+	}
+
+	/**
+	 * Cancel one Tradeprint item.
+	 *
+	 * @return void
+	 */
+	public function handle_cancel_item() {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'tradeprint-configurator' ) );
+		}
+
+		$item_id = isset( $_GET['item_id'] ) ? absint( $_GET['item_id'] ) : 0;
+		$order_id = isset( $_GET['order_id'] ) ? absint( $_GET['order_id'] ) : 0;
+		if ( ! $item_id || ! $order_id || ! wp_verify_nonce( isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '', 'tpcw_cancel_item_' . $item_id ) ) {
+			wp_die( esc_html__( 'Invalid cancellation request.', 'tradeprint-configurator' ) );
+		}
+
+		$order = wc_get_order( $order_id );
+		if ( ! $order ) {
+			wp_safe_redirect( admin_url( 'edit.php?post_type=shop_order' ) );
+			exit;
+		}
+
+		$item = $order->get_item( $item_id );
+		if ( ! $item ) {
+			wp_safe_redirect( admin_url( 'post.php?post=' . $order_id . '&action=edit' ) );
+			exit;
+		}
+
+		$order_ref = $item->get_meta( self::META_ORDER_REFERENCE, true );
+		$item_ref  = $item->get_meta( self::META_ITEM_REFERENCE, true );
+		$result    = $this->submission_service->cancel_order_item( $order_ref, $item_ref );
+		if ( is_wp_error( $result ) ) {
+			$item->update_meta_data( self::META_CANCEL_RESULT, array( 'success' => false, 'message' => $result->get_error_message(), 'timestamp' => current_time( 'mysql' ) ) );
+		} else {
+			$item->update_meta_data( self::META_CANCEL_RESULT, array( 'success' => true, 'response' => isset( $result['body'] ) ? $result['body'] : array(), 'timestamp' => current_time( 'mysql' ) ) );
+			$item->update_meta_data( self::META_STATUS, self::STATUS_FAILED );
+		}
+		$item->save();
+
+		wp_safe_redirect( admin_url( 'post.php?post=' . $order_id . '&action=edit' ) );
+		exit;
 	}
 
 	/**
